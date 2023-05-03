@@ -6,6 +6,8 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/WidgetComponent.h"
+#include "Net/UnrealNetwork.h"
+#include "ProjectZ/Weapon/Weapon.h"
 #include "Components/InputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
@@ -30,6 +32,11 @@ AProjectZCharacter::AProjectZCharacter()
 	OverheadWidget->SetupAttachment(RootComponent);
 }
 
+void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME_CONDITION(AProjectZCharacter, OverlappingWeapon,COND_OwnerOnly);
+}
 // Called when the game starts or when spawned
 void AProjectZCharacter::BeginPlay()
 {
@@ -43,7 +50,12 @@ void AProjectZCharacter::BeginPlay()
 		}
 	}
 }
+// Called every frame
+void AProjectZCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
 
+}
 void AProjectZCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D MoveValue= Value.Get<FVector2D>();
@@ -66,13 +78,6 @@ void AProjectZCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
-// Called every frame
-void AProjectZCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
-
 // Called to bind functionality to input
 void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -86,5 +91,32 @@ void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	}
 }
 
-
+//Weapon변수 복제될시 호출
+void AProjectZCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
+{
+	if (OverlappingWeapon)
+	{
+		OverlappingWeapon->ShowPickupWidget(true);
+	}
+	if (LastWeapon)
+	{
+		LastWeapon->ShowPickupWidget(false);
+	}
+}
+//Weapon Sphere overlap시 소유주 위젯 show 추가 check안할시 위젯 모두에게 나옴
+void AProjectZCharacter::SetOverlappingWeapon(AWeapon* Weapon)
+{
+	if (OverlappingWeapon)
+	{
+		OverlappingWeapon->ShowPickupWidget(false);
+	}
+	OverlappingWeapon = Weapon;
+	if (IsLocallyControlled())
+	{
+		if (OverlappingWeapon)
+		{
+			OverlappingWeapon->ShowPickupWidget(true);
+		}
+	}
+}
 
