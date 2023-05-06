@@ -55,5 +55,5 @@ private:
 	class UWidgetComponent* PickupWidget;
 public:	
 	// Called every frame
-
+	FORCEINLINE void SetWeaponState(EWeaponState State) { WeaponState = State; }
 };

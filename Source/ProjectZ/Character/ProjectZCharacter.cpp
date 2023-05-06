@@ -8,6 +8,7 @@
 #include "Components/WidgetComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "ProjectZ/Weapon/Weapon.h"
+#include "ProjectZ/ProjectZComponents/CombatComponent.h"
 #include "Components/InputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
@@ -30,6 +31,10 @@ AProjectZCharacter::AProjectZCharacter()
 
 	OverheadWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("OverheadWidget"));
 	OverheadWidget->SetupAttachment(RootComponent);
+
+	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
+	//액터 컴포넌트는 사전 함수재정의나 컨밴션없이 내장함수로 복제등록가능
+	Combat->SetIsReplicated(true);
 }
 
 void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -77,7 +82,13 @@ void AProjectZCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(LookAxisValue.Y);
 	}
 }
-
+void AProjectZCharacter::Equip()
+{
+	if (Combat&& HasAuthority())
+	{
+		Combat->EquipWeapon(OverlappingWeapon);
+	}
+}
 // Called to bind functionality to input
 void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -88,6 +99,15 @@ void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::Look);
 		//향상된 입력 연결 함수중 Action이 bool타입인경우 정의,구현 함수에서 인자 전달 필요 없음, void로 구현
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::Jump);
+		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::Equip);
+	}
+}
+void AProjectZCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	if (Combat)
+	{
+		Combat->Character = this;
 	}
 }
 
