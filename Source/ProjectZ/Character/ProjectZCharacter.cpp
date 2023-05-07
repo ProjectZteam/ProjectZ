@@ -84,7 +84,21 @@ void AProjectZCharacter::Look(const FInputActionValue& Value)
 }
 void AProjectZCharacter::Equip()
 {
-	if (Combat&& HasAuthority())
+	if (Combat)
+	{
+		if (HasAuthority())//서버인경우
+		{
+			Combat->EquipWeapon(OverlappingWeapon);
+		}
+		else//클라이언트인경우
+		{
+			ServerEquipPressed();
+		}
+	}
+}
+void AProjectZCharacter::ServerEquipPressed_Implementation()
+{
+	if (Combat)
 	{
 		Combat->EquipWeapon(OverlappingWeapon);
 	}
@@ -139,4 +153,12 @@ void AProjectZCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 		}
 	}
 }
+
+bool AProjectZCharacter::IsWeaponEquipped()
+{
+
+	return (Combat && Combat->EquippedWeapon);
+}
+
+
 

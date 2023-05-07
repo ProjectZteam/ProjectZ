@@ -28,4 +28,6 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	bIsInAir = ProjectZCharacter->GetCharacterMovement()->IsFalling();
 
 	bIsAccelerating = ProjectZCharacter->GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f ? true:false;
+
+	bWeaponEquipped = ProjectZCharacter->IsWeaponEquipped();
 }

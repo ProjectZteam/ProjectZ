@@ -55,7 +55,9 @@ private:
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 	UPROPERTY(VisibleAnywhere)
 	class UCombatComponent* Combat;
+	UFUNCTION(Server,Reliable)//신뢰가능 RPC 설정
+	void ServerEquipPressed();
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
-
+	bool IsWeaponEquipped();
 };
