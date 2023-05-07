@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundCue.h"
 #include "ProjectZCharacter.generated.h"
 
 class UInputMappingContext;
@@ -40,6 +42,7 @@ protected:
 	UInputAction* EquipAction;
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	//void Jump(const FInputActionValue& Value);
 	void Equip();
 private:
 	UPROPERTY(VisibleAnywhere, Category=Camera)
@@ -57,6 +60,14 @@ private:
 	class UCombatComponent* Combat;
 	UFUNCTION(Server,Reliable)//신뢰가능 RPC 설정
 	void ServerEquipPressed();
+
+	UPROPERTY(EditAnywhere, Category = "sound")
+		class USoundCue* mPJumpSound;
+	UPROPERTY(EditAnywhere, Category = "sound")
+		class USoundCue* mPEquipSound;
+	UAudioComponent* mPAudioComponent;
+	bool bIsWeaponChanged = false;
+
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();

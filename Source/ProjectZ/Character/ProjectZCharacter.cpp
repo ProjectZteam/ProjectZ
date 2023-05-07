@@ -35,6 +35,20 @@ AProjectZCharacter::AProjectZCharacter()
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	//액터 컴포넌트는 사전 함수재정의나 컨밴션없이 내장함수로 복제등록가능
 	Combat->SetIsReplicated(true);
+
+	mPAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("SOUND"));
+	mPAudioComponent->SetupAttachment(RootComponent);
+
+	static ConstructorHelpers::FObjectFinder<USoundCue> jumpSound(TEXT("/Game/Assets/ParagonWraith/Audio/Cues/Wraith_Effort_Jump"));
+	if (jumpSound.Succeeded())
+	{
+		mPJumpSound = jumpSound.Object;
+	}
+	static ConstructorHelpers::FObjectFinder<USoundCue> equipSound(TEXT("/Game/Assets/MilitaryWeapSilver/Sound/Rifle/Cues/Rifle_Lower_Cue"));
+	if (equipSound.Succeeded())
+	{
+		mPEquipSound = equipSound.Object;
+	}
 }
 
 void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -82,6 +96,12 @@ void AProjectZCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(LookAxisValue.Y);
 	}
 }
+/*사운드 재생은 되는 데 점프가 안되서 보류
+void AProjectZCharacter::Jump(const FInputActionValue& Value)
+{
+	mPAudioComponent->SetSound(mPJumpSound);
+	mPAudioComponent->Play();
+}*/
 void AProjectZCharacter::Equip()
 {
 	if (Combat)
@@ -94,6 +114,12 @@ void AProjectZCharacter::Equip()
 		{
 			ServerEquipPressed();
 		}
+	}
+	if (IsWeaponEquipped()&&bIsWeaponChanged)
+	{	
+		bIsWeaponChanged = false;
+		mPAudioComponent->SetSound(mPEquipSound);
+		mPAudioComponent->Play();
 	}
 }
 void AProjectZCharacter::ServerEquipPressed_Implementation()
@@ -152,6 +178,7 @@ void AProjectZCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 			OverlappingWeapon->ShowPickupWidget(true);
 		}
 	}
+	bIsWeaponChanged = true;
 }
 
 bool AProjectZCharacter::IsWeaponEquipped()
