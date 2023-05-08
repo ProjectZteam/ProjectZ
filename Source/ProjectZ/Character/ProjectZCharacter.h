@@ -40,6 +40,7 @@ protected:
 	UInputAction* EquipAction;
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void Jump() override;
 	void Equip();
 private:
 	UPROPERTY(VisibleAnywhere, Category=Camera)

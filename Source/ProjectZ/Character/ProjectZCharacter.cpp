@@ -82,6 +82,11 @@ void AProjectZCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(LookAxisValue.Y);
 	}
 }
+void AProjectZCharacter::Jump()
+{
+	Super::Jump();
+	//다른 추가 동작 필요시 여기에 작성
+}
 void AProjectZCharacter::Equip()
 {
 	if (Combat)
