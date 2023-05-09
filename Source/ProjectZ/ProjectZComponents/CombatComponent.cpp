@@ -7,6 +7,7 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Net/UnrealNetwork.h"
 #include "Components/SphereComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 // Sets default values for this component's properties
 UCombatComponent::UCombatComponent()
 {
@@ -27,6 +28,14 @@ void UCombatComponent::SetAiming(bool bIsAiming)
 	bAiming = bIsAiming;
 	ServerSetAiming(bIsAiming);
 	
+}
+void UCombatComponent::OnRep_EquippedWeapon()
+{
+	if (EquippedWeapon&&Character)
+	{
+		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
+		Character->bUseControllerRotationYaw = true;
+	}
 }
 void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 {
@@ -57,6 +66,8 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)//서버만 호출가능
 	}
 	//setOwner함수는 이미 Actor클래스에서 OnRep으로 지정되어있음
 	EquippedWeapon->SetOwner(Character);
+	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
+	Character->bUseControllerRotationYaw = true;
 }
 
 
