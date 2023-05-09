@@ -6,6 +6,7 @@
 #include "MultiplayerSessionsSubsystem.h"
 #include "OnlineSessionSettings.h"
 #include "OnlineSubsystem.h"
+#include "Kismet/GameplayStatics.h"
 //level blueprint call it
 void UMenu::MenuSetup(int32 NumberOfPublicConnections, FString TypeOfMatch,FString LobbyPath)
 {
@@ -204,6 +205,8 @@ void UMenu::JoinButtonClicked()
 
 void UMenu::SingleButtonClicked()
 {
+	UE_LOG(LogTemp, Log, TEXT("SingleButtonClicked"));
+	UGameplayStatics::OpenLevel(this, "SingleMap");
 }
 
 void UMenu::StartButtonClicked()
