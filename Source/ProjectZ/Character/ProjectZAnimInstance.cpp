@@ -30,4 +30,7 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	bIsAccelerating = ProjectZCharacter->GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f ? true:false;
 
 	bWeaponEquipped = ProjectZCharacter->IsWeaponEquipped();
+	
+	bIsCrouched = ProjectZCharacter->bIsCrouched;
+	bAiming = ProjectZCharacter->IsAiming();
 }
