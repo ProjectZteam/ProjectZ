@@ -35,8 +35,17 @@ AProjectZCharacter::AProjectZCharacter()
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	//액터 컴포넌트는 사전 함수재정의나 컨밴션없이 내장함수로 복제등록가능
 	Combat->SetIsReplicated(true);
-}
 
+	GetCharacterMovement()->NavAgentProps.bCanCrouch=true;
+}
+void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른 클래스가 최대한 빨리 초기화를 진행하고싶을 때 사용
+{
+	Super::PostInitializeComponents();
+	if (Combat)
+	{
+		Combat->Character = this;
+	}
+}
 void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -101,11 +110,38 @@ void AProjectZCharacter::Equip()
 		}
 	}
 }
+
 void AProjectZCharacter::ServerEquipPressed_Implementation()
 {
 	if (Combat)
 	{
 		Combat->EquipWeapon(OverlappingWeapon);
+	}
+}
+void AProjectZCharacter::CrouchButtonPressed()
+{
+	if (bIsCrouched)
+	{
+		UnCrouch();
+	}
+	else
+	{
+		Crouch();
+	}
+	
+}
+void AProjectZCharacter::AimButtonPressed()
+{
+	if (Combat)
+	{
+		Combat->SetAiming(true);
+	}
+}
+void AProjectZCharacter::AimButtonReleased()
+{
+	if (Combat)
+	{
+		Combat->SetAiming(false);
 	}
 }
 // Called to bind functionality to input
@@ -119,25 +155,21 @@ void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		//향상된 입력 연결 함수중 Action이 bool타입인경우 정의,구현 함수에서 인자 전달 필요 없음, void로 구현
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::Jump);
 		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::Equip);
-	}
-}
-void AProjectZCharacter::PostInitializeComponents()
-{
-	Super::PostInitializeComponents();
-	if (Combat)
-	{
-		Combat->Character = this;
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::CrouchButtonPressed);
+		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::AimButtonPressed);
+		EnhancedInputComponent->BindAction(AimReleaseAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::AimButtonReleased);
 	}
 }
 
-//Weapon변수 복제될시 호출
+
+//Weapon변수 클라이언트로 복제될시 호출
 void AProjectZCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 {
-	if (OverlappingWeapon)
+	if (OverlappingWeapon)// 겹치는무기 null 아닐시
 	{
 		OverlappingWeapon->ShowPickupWidget(true);
 	}
-	if (LastWeapon)
+	if (LastWeapon)//마지막 바뀌기 전값이 null이 아니면
 	{
 		LastWeapon->ShowPickupWidget(false);
 	}
@@ -161,8 +193,12 @@ void AProjectZCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 
 bool AProjectZCharacter::IsWeaponEquipped()
 {
-
 	return (Combat && Combat->EquippedWeapon);
+}
+
+bool AProjectZCharacter::IsAiming()
+{
+	return (Combat && Combat->bAiming);
 }
 
 
