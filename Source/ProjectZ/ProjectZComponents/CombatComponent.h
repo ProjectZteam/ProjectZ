@@ -32,8 +32,13 @@ private:
 	class AProjectZCharacter* Character;
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
 	AWeapon* EquippedWeapon;//서버만 무기장착함수 호출하므로 복제등록필요
-	UPROPERTY(Replicated)//클라 RPC 요청으로 Aiming변경해주고 변수 복제 전파, 서버자신이면 자기값 변경 후 복제 전파
+	UPROPERTY(Replicated)//클라 RPC 요청으로 Aiming변경해주고 변수 복제 전파, 서버자신이면 자기값 변경 후 복제 전파 
 	bool bAiming;
+
+	UPROPERTY(EditAnywhere)
+	float BaseWalkSpeed;
+	UPROPERTY(EditAnywhere)
+	float AimWalkSpeed;
 
 public:
 
