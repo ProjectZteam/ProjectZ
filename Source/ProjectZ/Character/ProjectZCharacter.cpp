@@ -5,6 +5,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "ProjectZ/Weapon/Weapon.h"
@@ -37,6 +38,8 @@ AProjectZCharacter::AProjectZCharacter()
 	Combat->SetIsReplicated(true);
 
 	GetCharacterMovement()->NavAgentProps.bCanCrouch=true;
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera,ECollisionResponse::ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 }
 void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른 클래스가 최대한 빨리 초기화를 진행하고싶을 때 사용
 {
@@ -132,11 +135,16 @@ void AProjectZCharacter::CrouchButtonPressed()
 }
 void AProjectZCharacter::AimButtonPressed()
 {
-	if (Combat)
+	if (Combat&&IsAiming())
+	{
+		Combat->SetAiming(false);
+	}
+	else
 	{
 		Combat->SetAiming(true);
 	}
 }
+//추후에 에임기능을 스위치방식으로할지, pressed상태방식으로할지 확장가능성위해 마우스 중간버튼클릭 액션 함수로 일단 남겨둠, 확정되면 inputaction및 함수 제거 예정
 void AProjectZCharacter::AimButtonReleased()
 {
 	if (Combat)
