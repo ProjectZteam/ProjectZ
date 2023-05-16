@@ -7,6 +7,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "ProjectZ/Weapon/Weapon.h"
 #include "ProjectZ/ProjectZComponents/CombatComponent.h"
@@ -71,7 +72,7 @@ void AProjectZCharacter::BeginPlay()
 void AProjectZCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
+	CalculateAimOffset(DeltaTime);
 }
 void AProjectZCharacter::Move(const FInputActionValue& Value)
 {
@@ -152,6 +153,38 @@ void AProjectZCharacter::AimButtonReleased()
 		Combat->SetAiming(false);
 	}
 }
+void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
+{
+	if (Combat && Combat->EquippedWeapon == nullptr) return;
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	float Speed = Velocity.Size();
+
+	bool bIsInAir = GetCharacterMovement()->IsFalling();
+
+	//속도 0이고 공중에 있는게 아니라면 AimOffet Yaw,Pitch 변수 삼각보간으로 계산
+	if (Speed == 0.f && !bIsInAir)
+	{
+		FRotator CurrentAimRotation=FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartAimRotation);
+		AO_Yaw = DeltaAimRotation.Yaw;
+		bUseControllerRotationYaw = false;
+	}
+	if (Speed > 0.f || bIsInAir)
+	{
+		StartAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		AO_Yaw = 0.f;
+		bUseControllerRotationYaw = true;
+	}
+	//값 복제시 각도는 압축해서 네트워크전송되기때문에 후처리 필요
+	AO_Pitch = GetBaseAimRotation().Pitch;
+	if (AO_Pitch > 90.f && !IsLocallyControlled())
+	{
+		FVector2D InRange(270.f, 360.f);
+		FVector2D OutRange(-90.f, 0.f);
+		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
+	}
+}
 // Called to bind functionality to input
 void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -207,6 +240,12 @@ bool AProjectZCharacter::IsWeaponEquipped()
 bool AProjectZCharacter::IsAiming()
 {
 	return (Combat && Combat->bAiming);
+}
+
+AWeapon* AProjectZCharacter::GetEquippedWeapon()
+{
+	if (Combat == nullptr) return nullptr;
+	return Combat->EquippedWeapon;
 }
 
 

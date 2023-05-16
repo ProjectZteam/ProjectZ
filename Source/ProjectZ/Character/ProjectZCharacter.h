@@ -51,6 +51,8 @@ protected:
 	void CrouchButtonPressed();
 	void AimButtonPressed();
 	void AimButtonReleased();
+
+	void CalculateAimOffset(float DeltaTime);
 private:
 	UPROPERTY(VisibleAnywhere, Category=Camera)
 	class USpringArmComponent* CameraBoom;
@@ -67,8 +69,15 @@ private:
 	class UCombatComponent* Combat;
 	UFUNCTION(Server,Reliable)//신뢰가능 RPC 설정
 	void ServerEquipPressed();
+
+	float AO_Yaw;
+	float AO_Pitch;
+	FRotator StartAimRotation;
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();
 	bool IsAiming();
+	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
+	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
+	AWeapon* GetEquippedWeapon();
 };

@@ -3,6 +3,7 @@
 
 #include "ProjectZAnimInstance.h"
 #include "ProjectZCharacter.h"
+#include "ProjectZ/Weapon/Weapon.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 void UProjectZAnimInstance::NativeInitializeAnimation()
@@ -32,6 +33,8 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 
 	bWeaponEquipped = ProjectZCharacter->IsWeaponEquipped();
 	
+	EquippedWeapon = ProjectZCharacter->GetEquippedWeapon();
+
 	bIsCrouched = ProjectZCharacter->bIsCrouched;
 	bAiming = ProjectZCharacter->IsAiming();
 
@@ -46,4 +49,17 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	const float Target = Delta.Yaw / DeltaTime;
 	const float Interp = FMath::FInterpTo(Lean,Target,DeltaTime,1.f);
 	Lean = FMath::Clamp(Interp, -90.f, 90.f);
+
+	AO_Yaw = ProjectZCharacter->GetAOYaw();
+	AO_Pitch = ProjectZCharacter->GetAOPitch();
+
+	if (bWeaponEquipped && EquippedWeapon&&EquippedWeapon->GetWeaponMesh()&&ProjectZCharacter->GetMesh())
+	{
+		LeftHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("LeftHandSocket"),ERelativeTransformSpace::RTS_World);
+		FVector OutPosition;
+		FRotator OutRotation;
+		ProjectZCharacter->GetMesh()->TransformToBoneSpace(FName("hand_r"),LeftHandTransform.GetLocation(),FRotator::ZeroRotator,OutPosition,OutRotation);
+		LeftHandTransform.SetLocation(OutPosition);
+		LeftHandTransform.SetRotation(FQuat(OutRotation));
+	}
 }
