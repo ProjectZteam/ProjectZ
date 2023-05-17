@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "ProjectZ/ProjectZTypes/TurnInPlace.h"
 #include "ProjectZCharacter.generated.h"
 
 class UInputMappingContext;
@@ -70,9 +71,14 @@ private:
 	UFUNCTION(Server,Reliable)//신뢰가능 RPC 설정
 	void ServerEquipPressed();
 
+	//save AimOffset Value
 	float AO_Yaw;
+	float InterpAO_Yaw;
 	float AO_Pitch;
 	FRotator StartAimRotation;
+
+	ETurnInPlace TurnInPlace;
+	void SetturnInPlace(float DeltaTime);
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();
@@ -80,4 +86,5 @@ public:
 	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
 	AWeapon* GetEquippedWeapon();
+	FORCEINLINE ETurnInPlace GetTurnInPlace() const { return TurnInPlace; }
 };

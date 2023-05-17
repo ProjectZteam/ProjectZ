@@ -41,6 +41,12 @@ AProjectZCharacter::AProjectZCharacter()
 	GetCharacterMovement()->NavAgentProps.bCanCrouch=true;
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera,ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+
+	TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+
+	//네트워크 업데이트 빈도 설정
+	NetUpdateFrequency = 66.f;
+	MinNetUpdateFrequency = 33.f;
 }
 void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른 클래스가 최대한 빨리 초기화를 진행하고싶을 때 사용
 {
@@ -168,13 +174,20 @@ void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
 		FRotator CurrentAimRotation=FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartAimRotation);
 		AO_Yaw = DeltaAimRotation.Yaw;
-		bUseControllerRotationYaw = false;
+		
+		if (TurnInPlace == ETurnInPlace::ETIP_NotTurn)
+		{
+			InterpAO_Yaw = AO_Yaw;
+		}
+		bUseControllerRotationYaw = true;
+		SetturnInPlace(DeltaTime);
 	}
 	if (Speed > 0.f || bIsInAir)
 	{
 		StartAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		AO_Yaw = 0.f;
 		bUseControllerRotationYaw = true;
+		TurnInPlace = ETurnInPlace::ETIP_NotTurn;
 	}
 	//값 복제시 각도는 압축해서 네트워크전송되기때문에 후처리 필요
 	AO_Pitch = GetBaseAimRotation().Pitch;
@@ -183,6 +196,27 @@ void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
 		FVector2D InRange(270.f, 360.f);
 		FVector2D OutRange(-90.f, 0.f);
 		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
+	}
+}
+void AProjectZCharacter::SetturnInPlace(float DeltaTime)
+{
+	if (AO_Yaw > 90.f)
+	{
+		TurnInPlace = ETurnInPlace::ETIP_Right;
+	}
+	else if (AO_Yaw < -90.f)
+	{
+		TurnInPlace = ETurnInPlace::ETIP_Left;
+	}
+	if (TurnInPlace != ETurnInPlace::ETIP_NotTurn)
+	{
+		InterpAO_Yaw = FMath::FInterpTo(InterpAO_Yaw, 0.f, DeltaTime, 5.f);
+		AO_Yaw = InterpAO_Yaw;
+		if (FMath::Abs(AO_Yaw) < 15.f)
+		{
+			TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+			StartAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		}
 	}
 }
 // Called to bind functionality to input

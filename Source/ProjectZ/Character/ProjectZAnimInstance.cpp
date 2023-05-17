@@ -27,22 +27,27 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	Velocity.Z = 0.f;
 	Speed = Velocity.Size();
 
+	//is in air
 	bIsInAir = ProjectZCharacter->GetCharacterMovement()->IsFalling();
-
+	//is Accelerate
 	bIsAccelerating = ProjectZCharacter->GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f ? true:false;
-
+	//is Weapon Equipped
 	bWeaponEquipped = ProjectZCharacter->IsWeaponEquipped();
-	
+	//get EquippedWeapon
 	EquippedWeapon = ProjectZCharacter->GetEquippedWeapon();
-
+	//is Crouched
 	bIsCrouched = ProjectZCharacter->bIsCrouched;
+	//is Aim
 	bAiming = ProjectZCharacter->IsAiming();
-
+	//TurnInPlace
+	TurnInPlace = ProjectZCharacter->GetTurnInPlace();
+	//YawOffset
 	FRotator AimRotation = ProjectZCharacter->GetBaseAimRotation();
 	FRotator MovementRotaion = UKismetMathLibrary::MakeRotFromX(ProjectZCharacter->GetVelocity());
 	FRotator DeltaRot = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotaion, AimRotation);
 	DeltaRotation = FMath::RInterpTo(DeltaRotation,DeltaRot,DeltaTime,6.f);
 	YawOffset = DeltaRotation.Yaw;
+	//Lean
 	CharacterRotationLastFrame = CharacterRotationCurrentFrame;
 	CharacterRotationCurrentFrame = ProjectZCharacter->GetActorRotation();
 	const FRotator Delta = UKismetMathLibrary::NormalizedDeltaRotator(CharacterRotationCurrentFrame,CharacterRotationLastFrame);
@@ -50,11 +55,13 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	const float Interp = FMath::FInterpTo(Lean,Target,DeltaTime,1.f);
 	Lean = FMath::Clamp(Interp, -90.f, 90.f);
 
+	//AimOffset
 	AO_Yaw = ProjectZCharacter->GetAOYaw();
 	AO_Pitch = ProjectZCharacter->GetAOPitch();
 
 	if (bWeaponEquipped && EquippedWeapon&&EquippedWeapon->GetWeaponMesh()&&ProjectZCharacter->GetMesh())
 	{
+		//Get Weapon Socket and attach to Character Right Hand Bone
 		LeftHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("LeftHandSocket"),ERelativeTransformSpace::RTS_World);
 		FVector OutPosition;
 		FRotator OutRotation;
