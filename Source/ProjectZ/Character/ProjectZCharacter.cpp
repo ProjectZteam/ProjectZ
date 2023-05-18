@@ -39,6 +39,7 @@ AProjectZCharacter::AProjectZCharacter()
 	Combat->SetIsReplicated(true);
 
 	GetCharacterMovement()->NavAgentProps.bCanCrouch=true;
+	GetCharacterMovement()->RotationRate = FRotator(0.f, 0.f, 800.f);
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera,ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 
@@ -47,6 +48,7 @@ AProjectZCharacter::AProjectZCharacter()
 	//네트워크 업데이트 빈도 설정
 	NetUpdateFrequency = 66.f;
 	MinNetUpdateFrequency = 33.f;
+	bIsCrouchPressed = false;
 }
 void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른 클래스가 최대한 빨리 초기화를 진행하고싶을 때 사용
 {
@@ -103,8 +105,16 @@ void AProjectZCharacter::Look(const FInputActionValue& Value)
 }
 void AProjectZCharacter::Jump()
 {
-	Super::Jump();
-	//다른 추가 동작 필요시 여기에 작성
+	if (bIsCrouched)
+	{
+		UnCrouch();
+		bIsCrouchPressed = true;
+	}
+	else 
+	{
+		Super::Jump();
+		//다른 추가 동작 필요시 여기에 작성
+	}
 }
 void AProjectZCharacter::Equip()
 {
@@ -130,10 +140,18 @@ void AProjectZCharacter::ServerEquipPressed_Implementation()
 }
 void AProjectZCharacter::CrouchButtonPressed()
 {
+	//if CrouchButton already pressed and call Jump from this state, then return
+	if (bIsCrouchPressed)
+	{
+		bIsCrouchPressed = false;
+		return;
+	}
+	//ture 면
 	if (bIsCrouched)
 	{
 		UnCrouch();
 	}
+	//false면
 	else
 	{
 		Crouch();

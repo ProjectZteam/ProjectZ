@@ -45,9 +45,11 @@ protected:
 	UInputAction* AimAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* AimReleaseAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	bool bIsCrouchPressed;
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
-	void Jump() override;
+	virtual void Jump() override;
 	void Equip();
 	void CrouchButtonPressed();
 	void AimButtonPressed();
