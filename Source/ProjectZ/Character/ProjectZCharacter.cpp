@@ -7,9 +7,11 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "ProjectZ/Weapon/Weapon.h"
 #include "ProjectZ/ProjectZComponents/CombatComponent.h"
+#include "ProjectZAnimInstance.h"
 #include "Components/InputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
@@ -38,8 +40,16 @@ AProjectZCharacter::AProjectZCharacter()
 	Combat->SetIsReplicated(true);
 
 	GetCharacterMovement()->NavAgentProps.bCanCrouch=true;
+	GetCharacterMovement()->RotationRate = FRotator(0.f, 0.f, 800.f);
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera,ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+
+	TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+
+	//네트워크 업데이트 빈도 설정
+	NetUpdateFrequency = 66.f;
+	MinNetUpdateFrequency = 33.f;
+	bIsCrouchPressed = false;
 }
 void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른 클래스가 최대한 빨리 초기화를 진행하고싶을 때 사용
 {
@@ -47,6 +57,19 @@ void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른
 	if (Combat)
 	{
 		Combat->Character = this;
+	}
+}
+void AProjectZCharacter::PlayFireMontage(bool bAiming)
+{
+	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && FireWeaponMontage)
+	{
+		AnimInstance->Montage_Play(FireWeaponMontage);
+		FName SectionName;
+		SectionName = bAiming ? FName("RifleAim") : FName("RifleHip");
+		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
 void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -71,7 +94,7 @@ void AProjectZCharacter::BeginPlay()
 void AProjectZCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
+	CalculateAimOffset(DeltaTime);
 }
 void AProjectZCharacter::Move(const FInputActionValue& Value)
 {
@@ -96,8 +119,16 @@ void AProjectZCharacter::Look(const FInputActionValue& Value)
 }
 void AProjectZCharacter::Jump()
 {
-	Super::Jump();
-	//다른 추가 동작 필요시 여기에 작성
+	if (bIsCrouched)
+	{
+		UnCrouch();
+		bIsCrouchPressed = true;
+	}
+	else 
+	{
+		Super::Jump();
+		//다른 추가 동작 필요시 여기에 작성
+	}
 }
 void AProjectZCharacter::Equip()
 {
@@ -123,10 +154,18 @@ void AProjectZCharacter::ServerEquipPressed_Implementation()
 }
 void AProjectZCharacter::CrouchButtonPressed()
 {
+	//if CrouchButton already pressed and call Jump from this state, then return
+	if (bIsCrouchPressed)
+	{
+		bIsCrouchPressed = false;
+		return;
+	}
+	//ture 면
 	if (bIsCrouched)
 	{
 		UnCrouch();
 	}
+	//false면
 	else
 	{
 		Crouch();
@@ -152,6 +191,80 @@ void AProjectZCharacter::AimButtonReleased()
 		Combat->SetAiming(false);
 	}
 }
+void AProjectZCharacter::FireButtonPressed()
+{
+	if (Combat)
+	{
+		Combat->FireButtonPressed(true);
+	}
+}
+void AProjectZCharacter::FireButtonReleased()
+{
+	if (Combat)
+	{
+		Combat->FireButtonPressed(false);
+	}
+}
+void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
+{
+	if (Combat && Combat->EquippedWeapon == nullptr) return;
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	float Speed = Velocity.Size();
+
+	bool bIsInAir = GetCharacterMovement()->IsFalling();
+
+	//속도 0이고 공중에 있는게 아니라면 AimOffet Yaw,Pitch 변수 삼각보간으로 계산
+	if (Speed == 0.f && !bIsInAir)
+	{
+		FRotator CurrentAimRotation=FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartAimRotation);
+		AO_Yaw = DeltaAimRotation.Yaw;
+		
+		if (TurnInPlace == ETurnInPlace::ETIP_NotTurn)
+		{
+			InterpAO_Yaw = AO_Yaw;
+		}
+		bUseControllerRotationYaw = true;
+		SetturnInPlace(DeltaTime);
+	}
+	if (Speed > 0.f || bIsInAir)
+	{
+		StartAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		AO_Yaw = 0.f;
+		bUseControllerRotationYaw = true;
+		TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+	}
+	//값 복제시 각도는 압축해서 네트워크전송되기때문에 후처리 필요
+	AO_Pitch = GetBaseAimRotation().Pitch;
+	if (AO_Pitch > 90.f && !IsLocallyControlled())
+	{
+		FVector2D InRange(270.f, 360.f);
+		FVector2D OutRange(-90.f, 0.f);
+		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
+	}
+}
+void AProjectZCharacter::SetturnInPlace(float DeltaTime)
+{
+	if (AO_Yaw > 90.f)
+	{
+		TurnInPlace = ETurnInPlace::ETIP_Right;
+	}
+	else if (AO_Yaw < -90.f)
+	{
+		TurnInPlace = ETurnInPlace::ETIP_Left;
+	}
+	if (TurnInPlace != ETurnInPlace::ETIP_NotTurn)
+	{
+		InterpAO_Yaw = FMath::FInterpTo(InterpAO_Yaw, 0.f, DeltaTime, 5.f);
+		AO_Yaw = InterpAO_Yaw;
+		if (FMath::Abs(AO_Yaw) < 15.f)
+		{
+			TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+			StartAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		}
+	}
+}
 // Called to bind functionality to input
 void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -166,6 +279,8 @@ void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::CrouchButtonPressed);
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::AimButtonPressed);
 		EnhancedInputComponent->BindAction(AimReleaseAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::AimButtonReleased);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::FireButtonPressed);
+		EnhancedInputComponent->BindAction(FireReleaseAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::FireButtonReleased);
 	}
 }
 
@@ -207,6 +322,12 @@ bool AProjectZCharacter::IsWeaponEquipped()
 bool AProjectZCharacter::IsAiming()
 {
 	return (Combat && Combat->bAiming);
+}
+
+AWeapon* AProjectZCharacter::GetEquippedWeapon()
+{
+	if (Combat == nullptr) return nullptr;
+	return Combat->EquippedWeapon;
 }
 
 

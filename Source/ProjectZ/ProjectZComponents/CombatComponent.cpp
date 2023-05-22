@@ -14,7 +14,7 @@ UCombatComponent::UCombatComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 
 	BaseWalkSpeed = 600.f;
-	AimWalkSpeed = 400.f;
+	AimWalkSpeed = 350.f;
 }
 // Called when the game starts
 void UCombatComponent::BeginPlay()
@@ -50,6 +50,16 @@ void UCombatComponent::OnRep_EquippedWeapon()
 	{
 		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 		Character->bUseControllerRotationYaw = true;
+	}
+}
+void UCombatComponent::FireButtonPressed(bool bPressed)
+{
+	bFireButtonPressed = bPressed;
+	if (EquippedWeapon == nullptr) return;
+	if (Character && bFireButtonPressed)
+	{
+		Character->PlayFireMontage(bAiming);
+		EquippedWeapon->Fire();
 	}
 }
 // Called every frame

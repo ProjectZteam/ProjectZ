@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "ProjectZ/ProjectZTypes/TurnInPlace.h"
 #include "ProjectZCharacter.generated.h"
 
 class UInputMappingContext;
@@ -24,6 +25,7 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
+	void PlayFireMontage(bool bAiming);
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -44,13 +46,23 @@ protected:
 	UInputAction* AimAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* AimReleaseAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* FireAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* FireReleaseAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	bool bIsCrouchPressed;
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
-	void Jump() override;
+	virtual void Jump() override;
 	void Equip();
 	void CrouchButtonPressed();
 	void AimButtonPressed();
 	void AimButtonReleased();
+	void FireButtonPressed();
+	void FireButtonReleased();
+
+	void CalculateAimOffset(float DeltaTime);
 private:
 	UPROPERTY(VisibleAnywhere, Category=Camera)
 	class USpringArmComponent* CameraBoom;
@@ -67,8 +79,24 @@ private:
 	class UCombatComponent* Combat;
 	UFUNCTION(Server,Reliable)//신뢰가능 RPC 설정
 	void ServerEquipPressed();
+
+	//save AimOffset Value
+	float AO_Yaw;
+	float InterpAO_Yaw;
+	float AO_Pitch;
+	FRotator StartAimRotation;
+
+	ETurnInPlace TurnInPlace;
+	void SetturnInPlace(float DeltaTime);
+
+	UPROPERTY(EditAnywhere, Category = Combat)
+	class UAnimMontage* FireWeaponMontage;
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();
 	bool IsAiming();
+	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
+	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
+	AWeapon* GetEquippedWeapon();
+	FORCEINLINE ETurnInPlace GetTurnInPlace() const { return TurnInPlace; }
 };
