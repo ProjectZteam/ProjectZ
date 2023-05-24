@@ -73,6 +73,9 @@ Plugins/*/Intermediate/*
 # Cache files for the editor to use
 DerivedDataCache/*
 
+# Project exe
+ProjectZ.uproject
+
 #ignore Content
 Content/ThirdPerson/*
 Content/__ExternalActors__/*
