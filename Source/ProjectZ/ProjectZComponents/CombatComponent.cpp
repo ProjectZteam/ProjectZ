@@ -4,6 +4,8 @@
 #include "CombatComponent.h"
 #include "ProjectZ/Weapon/Weapon.h"
 #include "ProjectZ/Character/ProjectZCharacter.h"
+#include "ProjectZ/PlayerController/ProjectZPlayerController.h"
+#include "ProjectZ/HUD/ProjectZHUD.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Net/UnrealNetwork.h"
 #include "Components/SphereComponent.h"
@@ -28,6 +30,84 @@ void UCombatComponent::BeginPlay()
 		Character->GetCharacterMovement()->MaxWalkSpeed = BaseWalkSpeed;
 	}
 
+}
+// Called every frame
+void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	SetHUDCrosshairs(DeltaTime);
+	if (Character && Character->IsLocallyControlled())
+	{
+		FHitResult HitResult;
+		TraceUnderCrosshairs(HitResult);
+		HitTarget = HitResult.ImpactPoint;
+	}
+}
+void UCombatComponent::SetHUDCrosshairs(float DeltaTime)
+{
+	if (Character == nullptr|| Character->Controller==nullptr) return;
+	Controller = Controller == nullptr ? Cast<AProjectZPlayerController>(Character->Controller) : Controller;
+
+	if (Controller)
+	{
+		HUD = HUD == nullptr ? Cast<AProjectZHUD>(Controller->GetHUD()) : HUD;
+		if (HUD)
+		{
+			FHUDSet HUDSet;
+			if (EquippedWeapon)
+			{
+				HUDSet.CrosshairsCenter = EquippedWeapon->CrosshairCenter;
+				HUDSet.CrosshairsRight = EquippedWeapon->CrosshairRight;
+				HUDSet.CrosshairsLeft = EquippedWeapon->CrosshairLeft;
+				HUDSet.CrosshairsTop = EquippedWeapon->CrosshairTop;
+				HUDSet.CrosshairsBottom = EquippedWeapon->CrosshairBottom;
+			}
+			else
+			{
+				HUDSet.CrosshairsCenter = nullptr;
+				HUDSet.CrosshairsRight = nullptr;
+				HUDSet.CrosshairsLeft = nullptr;
+				HUDSet.CrosshairsTop = nullptr;
+				HUDSet.CrosshairsBottom = nullptr;
+			}
+			if (Character->bIsCrouched)
+			{
+				FVector2D WalkSpeedRange(0.f, Character->GetCharacterMovement()->MaxWalkSpeedCrouched);
+				FVector2D VelocityMultiplierRange(0.f, 0.5f);
+				FVector Velocity = Character->GetVelocity();
+				Velocity.Z = 0.f;
+				CrosshairVelocityFactor = FMath::GetMappedRangeValueClamped(WalkSpeedRange, VelocityMultiplierRange, Velocity.Size());
+				if (Character->GetCharacterMovement()->IsFalling())
+				{
+					CrosshairIsairFactor = FMath::FInterpTo(CrosshairIsairFactor, 2.f, DeltaTime, 30.f);
+				}
+				else
+				{
+					CrosshairIsairFactor = FMath::FInterpTo(CrosshairIsairFactor, 0.f, DeltaTime, 30.f);
+				}
+				HUDSet.CrosshairSpread = CrosshairVelocityFactor+CrosshairIsairFactor;
+			}
+			else
+			{
+				FVector2D WalkSpeedRange(0.f, Character->GetCharacterMovement()->MaxWalkSpeed);
+				FVector2D VelocityMultiplierRange(0.f, 1.f);
+				FVector Velocity = Character->GetVelocity();
+				Velocity.Z = 0.f;
+				CrosshairVelocityFactor = FMath::GetMappedRangeValueClamped(WalkSpeedRange, VelocityMultiplierRange, Velocity.Size());
+				if (Character->GetCharacterMovement()->IsFalling())
+				{
+					CrosshairIsairFactor = FMath::FInterpTo(CrosshairIsairFactor, 2.f, DeltaTime, 2.f);
+				}
+				else
+				{
+					CrosshairIsairFactor = FMath::FInterpTo(CrosshairIsairFactor, 0.f, DeltaTime, 30.f);
+				}
+				HUDSet.CrosshairSpread = CrosshairVelocityFactor + CrosshairIsairFactor;
+			}
+			HUD->SetHUDSet(HUDSet);
+		}
+	}
 }
 void UCombatComponent::SetAiming(bool bIsAiming)
 {
@@ -115,11 +195,7 @@ void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& T
 	}
 
 }
-// Called every frame
-void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-}
+
 void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
