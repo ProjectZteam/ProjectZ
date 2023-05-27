@@ -246,11 +246,11 @@ void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
 }
 void AProjectZCharacter::SetturnInPlace(float DeltaTime)
 {
-	if (AO_Yaw > 90.f)
+	if (AO_Yaw > 40.f)
 	{
 		TurnInPlace = ETurnInPlace::ETIP_Right;
 	}
-	else if (AO_Yaw < -90.f)
+	else if (AO_Yaw < -55.f)
 	{
 		TurnInPlace = ETurnInPlace::ETIP_Left;
 	}
@@ -328,6 +328,13 @@ AWeapon* AProjectZCharacter::GetEquippedWeapon()
 {
 	if (Combat == nullptr) return nullptr;
 	return Combat->EquippedWeapon;
+}
+
+FVector AProjectZCharacter::GetHitTarget() const
+{
+
+	if (Combat == nullptr) return FVector();
+	return Combat->HitTarget;
 }
 
 

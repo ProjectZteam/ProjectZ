@@ -26,6 +26,18 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void ShowPickupWidget(bool bShowWidget);
 	virtual void Fire(const FVector& HitTarget);
+
+	//무기 크로스헤어 텍스쳐들
+	UPROPERTY(Editanywhere, Category = Crosshairs)
+	class UTexture2D* CrosshairCenter;
+	UPROPERTY(Editanywhere, Category = Crosshairs)
+	UTexture2D* CrosshairRight;
+	UPROPERTY(Editanywhere, Category = Crosshairs)
+	UTexture2D* CrosshairLeft;
+	UPROPERTY(Editanywhere, Category = Crosshairs)
+	UTexture2D* CrosshairTop;
+	UPROPERTY(Editanywhere, Category = Crosshairs)
+	UTexture2D* CrosshairBottom;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -60,6 +72,10 @@ private:
 	class UWidgetComponent* PickupWidget;
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	class UAnimationAsset* FireAnimation;
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	TSubclassOf<class ACartridge> CartridgeClass;
+
+	
 public:	
 	void SetWeaponState(EWeaponState State);
 	FORCEINLINE USphereComponent* GetAreaSphere() const { return AreaSphere; }
