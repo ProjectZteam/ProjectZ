@@ -41,9 +41,10 @@ AProjectZCharacter::AProjectZCharacter()
 
 	GetCharacterMovement()->NavAgentProps.bCanCrouch=true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 0.f, 800.f);
+	GetCharacterMovement()->MaxWalkSpeed = 900.f;
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera,ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
-
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 	TurnInPlace = ETurnInPlace::ETIP_NotTurn;
 
 	//네트워크 업데이트 빈도 설정

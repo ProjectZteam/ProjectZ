@@ -6,12 +6,13 @@
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
 #include "ProjectZ/ProjectZTypes/TurnInPlace.h"
+#include "ProjectZ/Interfaces/InteractCrosshairsInterface.h"
 #include "ProjectZCharacter.generated.h"
 
 class UInputMappingContext;
 class UInputAction;
 UCLASS()
-class PROJECTZ_API AProjectZCharacter : public ACharacter
+class PROJECTZ_API AProjectZCharacter : public ACharacter, public IInteractCrosshairsInterface
 {
 	GENERATED_BODY()
 
@@ -100,4 +101,5 @@ public:
 	AWeapon* GetEquippedWeapon();
 	FORCEINLINE ETurnInPlace GetTurnInPlace() const { return TurnInPlace; }
 	FVector GetHitTarget() const;
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };

@@ -11,6 +11,7 @@ ACartridge::ACartridge()
 	CartridgeMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CartridgeMesh"));
 	SetRootComponent(CartridgeMesh);
 	CartridgeMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera,ECollisionResponse::ECR_Ignore);
+	CartridgeMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	CartridgeMesh->SetSimulatePhysics(true);
 	CartridgeMesh->SetEnableGravity(true);
 	CartridgeMesh->SetNotifyRigidBodyCollision(true);
