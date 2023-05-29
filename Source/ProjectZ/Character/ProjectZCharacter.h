@@ -6,12 +6,13 @@
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
 #include "ProjectZ/ProjectZTypes/TurnInPlace.h"
+#include "ProjectZ/Interfaces/InteractCrosshairsInterface.h"
 #include "ProjectZCharacter.generated.h"
 
 class UInputMappingContext;
 class UInputAction;
 UCLASS()
-class PROJECTZ_API AProjectZCharacter : public ACharacter
+class PROJECTZ_API AProjectZCharacter : public ACharacter, public IInteractCrosshairsInterface
 {
 	GENERATED_BODY()
 
@@ -26,6 +27,8 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
 	void PlayFireMontage(bool bAiming);
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastHit();
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -61,8 +64,8 @@ protected:
 	void AimButtonReleased();
 	void FireButtonPressed();
 	void FireButtonReleased();
-
 	void CalculateAimOffset(float DeltaTime);
+	void PlayHitReactMontage();
 private:
 	UPROPERTY(VisibleAnywhere, Category=Camera)
 	class USpringArmComponent* CameraBoom;
@@ -91,6 +94,12 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = Combat)
 	class UAnimMontage* FireWeaponMontage;
+	UPROPERTY(EditAnywhere, Category = Combat)
+	class UAnimMontage* HitReactMontage;
+
+	void HideCameraCollisionToCharacter();
+	UPROPERTY(EditAnywhere)
+	float CameraThreshold = 150.f;
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();
@@ -100,4 +109,5 @@ public:
 	AWeapon* GetEquippedWeapon();
 	FORCEINLINE ETurnInPlace GetTurnInPlace() const { return TurnInPlace; }
 	FVector GetHitTarget() const;
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };

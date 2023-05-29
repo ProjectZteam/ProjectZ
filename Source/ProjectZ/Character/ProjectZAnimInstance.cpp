@@ -6,6 +6,7 @@
 #include "ProjectZ/Weapon/Weapon.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "DrawDebugHelpers.h"
 void UProjectZAnimInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
@@ -69,8 +70,20 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 		LeftHandTransform.SetLocation(OutPosition);
 		LeftHandTransform.SetRotation(FQuat(OutRotation));
 
-		//FTransform RightHandTransform= EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("hand_r"), ERelativeTransformSpace::RTS_World);
-		FTransform RightHandTransform = ProjectZCharacter->GetMesh()->GetSocketTransform(FName("hand_r"), ERelativeTransformSpace::RTS_World);
-		RightHandRotation=UKismetMathLibrary::FindLookAtRotation(RightHandTransform.GetLocation(), RightHandTransform.GetLocation()+(RightHandTransform.GetLocation()-ProjectZCharacter->GetHitTarget()));
+		// weapon rotation debug line
+		//FTransform MuzzleTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("MuzzleFlash"), ERelativeTransformSpace::RTS_World);
+		//FVector MuzzleX(FRotationMatrix(MuzzleTransform.GetRotation().Rotator()).GetUnitAxis(EAxis::X));
+		//DrawDebugLine(GetWorld(), MuzzleTransform.GetLocation(), MuzzleTransform.GetLocation() + MuzzleX*1000.f, FColor::Red);
+		//DrawDebugLine(GetWorld(), MuzzleTransform.GetLocation(),ProjectZCharacter->GetHitTarget(),FColor::Cyan);
+		//
+
+		if (ProjectZCharacter->IsLocallyControlled())
+		{
+			bLocallyControlled = true;
+			FTransform RightHandTransform = ProjectZCharacter->GetMesh()->GetSocketTransform(FName("hand_r"), ERelativeTransformSpace::RTS_World);
+			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(RightHandTransform.GetLocation(), RightHandTransform.GetLocation() + (RightHandTransform.GetLocation() - ProjectZCharacter->GetHitTarget()));
+			RightHandRotation = FMath::RInterpTo(RightHandRotation,LookAtRotation, DeltaTime ,30.f);
+		}
+		
 	}
 }

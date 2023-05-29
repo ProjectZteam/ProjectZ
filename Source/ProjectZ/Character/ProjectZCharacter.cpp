@@ -11,6 +11,7 @@
 #include "Net/UnrealNetwork.h"
 #include "ProjectZ/Weapon/Weapon.h"
 #include "ProjectZ/ProjectZComponents/CombatComponent.h"
+#include "ProjectZ/ProjectZ.h"
 #include "ProjectZAnimInstance.h"
 #include "Components/InputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -41,9 +42,11 @@ AProjectZCharacter::AProjectZCharacter()
 
 	GetCharacterMovement()->NavAgentProps.bCanCrouch=true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 0.f, 800.f);
+	GetCharacterMovement()->MaxWalkSpeed = 900.f;
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera,ECollisionResponse::ECR_Ignore);
+	GetMesh()->SetCollisionObjectType(ECC_SkeletalMesh);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
-
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 	TurnInPlace = ETurnInPlace::ETIP_NotTurn;
 
 	//네트워크 업데이트 빈도 설정
@@ -72,6 +75,18 @@ void AProjectZCharacter::PlayFireMontage(bool bAiming)
 		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
+void AProjectZCharacter::PlayHitReactMontage()
+{
+	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && HitReactMontage)
+	{
+		AnimInstance->Montage_Play(HitReactMontage);
+		FName SectionName("HitFront");
+		AnimInstance->Montage_JumpToSection(SectionName);
+	}
+}
 void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -95,6 +110,7 @@ void AProjectZCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	CalculateAimOffset(DeltaTime);
+	HideCameraCollisionToCharacter();
 }
 void AProjectZCharacter::Move(const FInputActionValue& Value)
 {
@@ -246,7 +262,7 @@ void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
 }
 void AProjectZCharacter::SetturnInPlace(float DeltaTime)
 {
-	if (AO_Yaw > 40.f)
+	if (AO_Yaw > 45.f)
 	{
 		TurnInPlace = ETurnInPlace::ETIP_Right;
 	}
@@ -295,6 +311,30 @@ void AProjectZCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 	if (LastWeapon)//마지막 바뀌기 전값이 null이 아니면
 	{
 		LastWeapon->ShowPickupWidget(false);
+	}
+}
+void AProjectZCharacter::MulticastHit_Implementation()
+{
+	PlayHitReactMontage();
+}
+void AProjectZCharacter::HideCameraCollisionToCharacter()
+{
+	if (!IsLocallyControlled()) return;
+	if ((FollowCamera->GetComponentLocation()-GetActorLocation()).Size()<CameraThreshold)
+	{
+		GetMesh()->SetVisibility(false);
+		if (Combat && Combat->EquippedWeapon && Combat->EquippedWeapon->GetWeaponMesh())
+		{
+			Combat->EquippedWeapon->GetWeaponMesh()->bOwnerNoSee = true;
+		}
+	}
+	else
+	{
+		GetMesh()->SetVisibility(true);
+		if (Combat && Combat->EquippedWeapon && Combat->EquippedWeapon->GetWeaponMesh())
+		{
+			Combat->EquippedWeapon->GetWeaponMesh()->bOwnerNoSee = false;
+		}
 	}
 }
 //Weapon Sphere overlap시 소유주 위젯 show 추가 check안할시 위젯 모두에게 나옴

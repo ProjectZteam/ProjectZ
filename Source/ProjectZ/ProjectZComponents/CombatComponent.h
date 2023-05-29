@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "ProjectZ/HUD/ProjectZHUD.h"
 #include "CombatComponent.generated.h"
 
 #define TRACE_LENGTH 80000.f
@@ -43,16 +44,27 @@ private:
 	class AProjectZCharacter* Character;
 	class AProjectZPlayerController* Controller;
 	class AProjectZHUD* HUD;
+	FHUDSet HUDSet;
 	float CrosshairVelocityFactor;
 	float CrosshairIsairFactor;
+	float CrosshairAimFactor;
+	float CrosshairShootingFactor;
+
 	FVector HitTarget;
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
 	AWeapon* EquippedWeapon;//서버만 무기장착함수 호출하므로 복제등록필요
 	UPROPERTY(Replicated)//클라 RPC 요청으로 Aiming변경해주고 변수 복제 전파, 서버자신이면 자기값 변경 후 복제 전파 
 	bool bAiming;
+	float DefaultFOV;
+	UPROPERTY(EditAnywhere,Category=Combat)
+	float ZoomedFOV = 0.f;
+	UPROPERTY(EditAnywhere, Category = Combat)
+	float ZoomInterpSpeed = 0.f;
 
+	float CurrentFOV;
+
+	void InterpFOV(float DeltaTime);
 	bool bFireButtonPressed;
-
 	UPROPERTY(EditAnywhere)
 	float BaseWalkSpeed;
 	UPROPERTY(EditAnywhere)
