@@ -39,6 +39,8 @@ private:
 	float YawOffset;
 	UPROPERTY(BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess = "true"))
 	float Lean;
+	UPROPERTY(BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess = "true"))
+	bool bRotateRootBone;
 
 	FRotator CharacterRotationLastFrame;
 	FRotator CharacterRotationCurrentFrame;

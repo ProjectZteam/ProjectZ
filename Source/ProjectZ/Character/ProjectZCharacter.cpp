@@ -75,6 +75,12 @@ void AProjectZCharacter::PlayFireMontage(bool bAiming)
 		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
+void AProjectZCharacter::OnRep_ReplicatedMovement()
+{
+	Super::OnRep_ReplicatedMovement();
+	SimProxiesTurn();
+	TimeSinceLastMovementReplication = 0.f;
+}
 void AProjectZCharacter::PlayHitReactMontage()
 {
 	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
@@ -109,7 +115,19 @@ void AProjectZCharacter::BeginPlay()
 void AProjectZCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	CalculateAimOffset(DeltaTime);
+	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy&& IsLocallyControlled())//Local or Server
+	{
+		CalculateAimOffset(DeltaTime);
+	}
+	else
+	{
+		TimeSinceLastMovementReplication += DeltaTime;
+		if (TimeSinceLastMovementReplication > 0.25f)
+		{
+			OnRep_ReplicatedBasedMovement();
+		}
+		CalculateAO_Pitch();
+	}
 	HideCameraCollisionToCharacter();
 }
 void AProjectZCharacter::Move(const FInputActionValue& Value)
@@ -148,7 +166,8 @@ void AProjectZCharacter::Jump()
 }
 void AProjectZCharacter::Equip()
 {
-	if (Combat)
+	//Temp 코드 후에 무기 추가되면 EquippedWeapon null검사문장 삭제
+	if (Combat&&Combat->EquippedWeapon==nullptr)
 	{
 		if (HasAuthority())//서버인경우
 		{
@@ -221,18 +240,23 @@ void AProjectZCharacter::FireButtonReleased()
 		Combat->FireButtonPressed(false);
 	}
 }
+float AProjectZCharacter::CalculateSpeed()
+{
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	return Velocity.Size();
+}
 void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
 {
 	if (Combat && Combat->EquippedWeapon == nullptr) return;
-	FVector Velocity = GetVelocity();
-	Velocity.Z = 0.f;
-	float Speed = Velocity.Size();
+	float Speed = CalculateSpeed();
 
 	bool bIsInAir = GetCharacterMovement()->IsFalling();
 
 	//속도 0이고 공중에 있는게 아니라면 AimOffet Yaw,Pitch 변수 삼각보간으로 계산
 	if (Speed == 0.f && !bIsInAir)
 	{
+		bRotateRootBone = true;
 		FRotator CurrentAimRotation=FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartAimRotation);
 		AO_Yaw = DeltaAimRotation.Yaw;
@@ -244,14 +268,20 @@ void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
 		bUseControllerRotationYaw = true;
 		SetturnInPlace(DeltaTime);
 	}
+	//run or jump
 	if (Speed > 0.f || bIsInAir)
 	{
+		bRotateRootBone = false;
 		StartAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		AO_Yaw = 0.f;
 		bUseControllerRotationYaw = true;
 		TurnInPlace = ETurnInPlace::ETIP_NotTurn;
 	}
 	//값 복제시 각도는 압축해서 네트워크전송되기때문에 후처리 필요
+	CalculateAO_Pitch();
+}
+void AProjectZCharacter::CalculateAO_Pitch()
+{
 	AO_Pitch = GetBaseAimRotation().Pitch;
 	if (AO_Pitch > 90.f && !IsLocallyControlled())
 	{
@@ -259,6 +289,37 @@ void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
 		FVector2D OutRange(-90.f, 0.f);
 		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
 	}
+}
+void AProjectZCharacter::SimProxiesTurn()
+{
+	if (Combat==nullptr || Combat->EquippedWeapon == nullptr)return;
+	bRotateRootBone = false;
+	float Speed = CalculateSpeed();
+	if (Speed > 0.f)
+	{
+		TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+		return;
+	}
+	ProxyRotationLastFrame = ProxyRotation;
+	ProxyRotation = GetActorRotation();
+	ProxyYaw=UKismetMathLibrary::NormalizedDeltaRotator(ProxyRotation,ProxyRotationLastFrame).Yaw;
+	if (FMath::Abs(ProxyYaw) > TurnThreshold)
+	{
+		if (ProxyYaw > TurnThreshold)
+		{
+			TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+		}
+		else if (ProxyYaw < -TurnThreshold)
+		{
+			TurnInPlace = ETurnInPlace::ETIP_Left;
+		}
+		else
+		{
+			TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+		}
+		return;
+	}
+	TurnInPlace = ETurnInPlace::ETIP_NotTurn;
 }
 void AProjectZCharacter::SetturnInPlace(float DeltaTime)
 {
