@@ -12,6 +12,7 @@
 #include "ProjectZ/Weapon/Weapon.h"
 #include "ProjectZ/ProjectZComponents/CombatComponent.h"
 #include "ProjectZ/ProjectZ.h"
+#include "ProjectZ/PlayerController/ProjectZPlayerController.h"
 #include "ProjectZAnimInstance.h"
 #include "Components/InputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -62,6 +63,27 @@ void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른
 		Combat->Character = this;
 	}
 }
+// Called when the game starts or when spawned
+void AProjectZCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UpdateHUDHealth();
+
+	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		{
+			Subsystem->AddMappingContext(ProjectZMappingContext, 0);
+		}
+	}
+
+	if (HasAuthority())
+	{
+		//ApplyDamage 함수가 위임자에의해 호출 이는 다시 ReceiveDamage 호출 (서버만 호출) //this는 ApplyDamage에서 넘어온 OtherActor
+		OnTakeAnyDamage.AddDynamic(this,&AProjectZCharacter::ReceiveDamage);
+	}
+}
 void AProjectZCharacter::PlayFireMontage(bool bAiming)
 {
 	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
@@ -93,23 +115,18 @@ void AProjectZCharacter::PlayHitReactMontage()
 		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
+void AProjectZCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser)
+{
+	//클라나 서버의 Health 변경 후 서버에 의해 복제
+	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
+	UpdateHUDHealth();
+	PlayHitReactMontage();
+}
 void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AProjectZCharacter, OverlappingWeapon,COND_OwnerOnly);
-}
-// Called when the game starts or when spawned
-void AProjectZCharacter::BeginPlay()
-{
-	Super::BeginPlay();
-	
-	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(ProjectZMappingContext,0);
-		}
-	}
+	DOREPLIFETIME(AProjectZCharacter, Health);
 }
 // Called every frame
 void AProjectZCharacter::Tick(float DeltaTime)
@@ -147,8 +164,13 @@ void AProjectZCharacter::Look(const FInputActionValue& Value)
 	const FVector2D LookAxisValue=Value.Get<FVector2D>();
 	if (GetController())
 	{
-		AddControllerYawInput(LookAxisValue.X);
-		AddControllerPitchInput(LookAxisValue.Y);
+		float AimSensitivity = 1.0f;
+		if (Combat && Combat->bAiming)
+		{
+			AimSensitivity = 3.0f;
+		}
+		AddControllerYawInput(LookAxisValue.X/AimSensitivity);
+		AddControllerPitchInput(LookAxisValue.Y/AimSensitivity);
 	}
 }
 void AProjectZCharacter::Jump()
@@ -374,10 +396,6 @@ void AProjectZCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 		LastWeapon->ShowPickupWidget(false);
 	}
 }
-void AProjectZCharacter::MulticastHit_Implementation()
-{
-	PlayHitReactMontage();
-}
 void AProjectZCharacter::HideCameraCollisionToCharacter()
 {
 	if (!IsLocallyControlled()) return;
@@ -396,6 +414,20 @@ void AProjectZCharacter::HideCameraCollisionToCharacter()
 		{
 			Combat->EquippedWeapon->GetWeaponMesh()->bOwnerNoSee = false;
 		}
+	}
+}
+void AProjectZCharacter::OnRep_Health()
+{
+	//클라이언트라면 서버의 값 복제로 Health값 변경된 걸 알고나면 OnRep_Health호출
+	UpdateHUDHealth();
+	PlayHitReactMontage();
+}
+void AProjectZCharacter::UpdateHUDHealth()
+{
+	ProjectZPlayerController = ProjectZPlayerController == nullptr ? Cast<AProjectZPlayerController>(Controller) : ProjectZPlayerController;
+	if (ProjectZPlayerController)
+	{
+		ProjectZPlayerController->SetHUDHealth(Health, MaxHealth);
 	}
 }
 //Weapon Sphere overlap시 소유주 위젯 show 추가 check안할시 위젯 모두에게 나옴

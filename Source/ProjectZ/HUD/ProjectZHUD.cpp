@@ -2,7 +2,25 @@
 
 
 #include "ProjectZHUD.h"
+#include "GameFramework/PlayerController.h"
+#include "CharacterOverlay.h"
 
+void AProjectZHUD::BeginPlay()
+{
+	Super::BeginPlay();
+
+	AddCharacterOverlay();
+}
+
+void AProjectZHUD::AddCharacterOverlay()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (PlayerController && CharacterOverlayClass)
+	{
+		CharacterOverlay = CreateWidget<UCharacterOverlay>(PlayerController, CharacterOverlayClass);
+		CharacterOverlay->AddToViewport();
+	}
+}
 void AProjectZHUD::DrawHUD()
 {
 	Super::DrawHUD();

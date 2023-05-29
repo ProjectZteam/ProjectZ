@@ -18,6 +18,8 @@ protected:
 	virtual void BeginPlay() override;
 	UFUNCTION()
 	virtual void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	UPROPERTY(EditAnywhere)
+	float Damage=10.f;
 private:
 	UPROPERTY(EditAnywhere)
 	class UBoxComponent* CollisionBox;

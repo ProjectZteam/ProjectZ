@@ -13,5 +13,10 @@ UCLASS()
 class PROJECTZ_API AProjectZPlayerController : public APlayerController
 {
 	GENERATED_BODY()
-	
+public:
+	void SetHUDHealth(float Health,float MaxHealth);
+protected:
+	virtual void BeginPlay() override;
+private:
+	class AProjectZHUD* ProjectZHUD;
 };

@@ -30,6 +30,13 @@ class PROJECTZ_API AProjectZHUD : public AHUD
 	GENERATED_BODY()
 public:
 	virtual void DrawHUD() override;
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	TSubclassOf<class UUserWidget> CharacterOverlayClass;
+
+	class UCharacterOverlay* CharacterOverlay;
+protected:
+	virtual void BeginPlay() override;
+	void AddCharacterOverlay();
 private:
 	FHUDSet HUDSet;
 	void DrawCrosshair(UTexture2D* Textrue,FVector2D ViewportCenter,FVector2D Sprad,FLinearColor CrosshairColor);

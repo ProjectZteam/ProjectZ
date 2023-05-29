@@ -27,8 +27,6 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
 	void PlayFireMontage(bool bAiming);
-	UFUNCTION(NetMulticast, Unreliable)
-	void MulticastHit();
 	virtual void OnRep_ReplicatedMovement() override;
 protected:
 	// Called when the game starts or when spawned
@@ -69,6 +67,9 @@ protected:
 	void CalculateAO_Pitch();
 	void SimProxiesTurn();
 	void PlayHitReactMontage();
+	UFUNCTION()
+	void ReceiveDamage(AActor* DamagedActor,float Damage,const UDamageType* DamageType, class AController* InstigatorController,AActor* DamageCauser);
+	void UpdateHUDHealth();
 private:
 	UPROPERTY(VisibleAnywhere, Category=Camera)
 	class USpringArmComponent* CameraBoom;
@@ -113,6 +114,17 @@ private:
 	float ProxyYaw;
 	float TimeSinceLastMovementReplication;
 	float CalculateSpeed();
+	//Health
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	float MaxHealth = 100.f;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Health, VisibleAnywhere, Category = "Player Stats")
+	float Health = 100.f;
+
+	UFUNCTION()
+	void OnRep_Health();
+
+	class AProjectZPlayerController* ProjectZPlayerController;
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();
