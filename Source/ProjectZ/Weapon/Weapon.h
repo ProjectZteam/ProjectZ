@@ -26,7 +26,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void ShowPickupWidget(bool bShowWidget);
 	virtual void Fire(const FVector& HitTarget);
-
+	void Dropped();
 	//무기 크로스헤어 텍스쳐들
 	UPROPERTY(Editanywhere, Category = Crosshairs)
 	class UTexture2D* CrosshairCenter;

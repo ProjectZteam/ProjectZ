@@ -9,10 +9,12 @@
 #include "Components/WidgetComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
+#include "TimerManager.h"
 #include "ProjectZ/Weapon/Weapon.h"
 #include "ProjectZ/ProjectZComponents/CombatComponent.h"
 #include "ProjectZ/ProjectZ.h"
 #include "ProjectZ/PlayerController/ProjectZPlayerController.h"
+#include "ProjectZ/GameMode/ProjectZMultiGameMode.h"
 #include "ProjectZAnimInstance.h"
 #include "Components/InputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -54,6 +56,8 @@ AProjectZCharacter::AProjectZCharacter()
 	NetUpdateFrequency = 66.f;
 	MinNetUpdateFrequency = 33.f;
 	bIsCrouchPressed = false;
+
+	DissolveTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("DissolveTimelineComponent"));
 }
 void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른 클래스가 최대한 빨리 초기화를 진행하고싶을 때 사용
 {
@@ -97,11 +101,76 @@ void AProjectZCharacter::PlayFireMontage(bool bAiming)
 		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
+void AProjectZCharacter::PlayElimMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && ElimMontage)
+	{
+		AnimInstance->Montage_Play(ElimMontage);
+	}
+}
 void AProjectZCharacter::OnRep_ReplicatedMovement()
 {
 	Super::OnRep_ReplicatedMovement();
 	SimProxiesTurn();
 	TimeSinceLastMovementReplication = 0.f;
+}
+void AProjectZCharacter::Elim()
+{
+	if (Combat && Combat->EquippedWeapon)
+	{
+		Combat->EquippedWeapon->Dropped();
+	}
+	MulticastElim();
+	GetWorldTimerManager().SetTimer(
+		ElimTimer,
+		this,
+		&AProjectZCharacter::ElimTimerFinished,
+		ElimDelay
+	);
+}
+void AProjectZCharacter::MulticastElim_Implementation()
+{
+
+	bElimmed = true;
+	PlayElimMontage();
+
+	// dissolve시작
+	if (DissolveMaterialInstnace1&& DissolveMaterialInstnace2&& DissolveMaterialInstnace3)
+	{
+		DynamicDissolveMaterialInstance1 = UMaterialInstanceDynamic::Create(DissolveMaterialInstnace1,this);
+		DynamicDissolveMaterialInstance2 = UMaterialInstanceDynamic::Create(DissolveMaterialInstnace2, this);
+		DynamicDissolveMaterialInstance3 = UMaterialInstanceDynamic::Create(DissolveMaterialInstnace3, this);
+
+		GetMesh()->SetMaterial(0, DynamicDissolveMaterialInstance1);
+		DynamicDissolveMaterialInstance1->SetScalarParameterValue(TEXT("Dissolve"), 0.55f);
+		DynamicDissolveMaterialInstance1->SetScalarParameterValue(TEXT("Glow"), 200.f);
+		GetMesh()->SetMaterial(1, DynamicDissolveMaterialInstance2);
+		DynamicDissolveMaterialInstance2->SetScalarParameterValue(TEXT("Dissolve"), 0.55f);
+		DynamicDissolveMaterialInstance2->SetScalarParameterValue(TEXT("Glow"), 200.f);
+		GetMesh()->SetMaterial(2, DynamicDissolveMaterialInstance3);
+		DynamicDissolveMaterialInstance3->SetScalarParameterValue(TEXT("Dissolve"), 0.55f);
+		DynamicDissolveMaterialInstance3->SetScalarParameterValue(TEXT("Glow"), 200.f);
+	}
+	StartDissolve();
+	// 캐릭터 무브먼트 제거
+	GetCharacterMovement()->DisableMovement();
+	GetCharacterMovement()->StopMovementImmediately();
+	if (ProjectZPlayerController)
+	{
+		DisableInput(ProjectZPlayerController);
+	}
+	// 충돌 제거
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+void AProjectZCharacter::ElimTimerFinished()
+{
+	AProjectZMultiGameMode* ProjectZMultiGameMode = GetWorld()->GetAuthGameMode<AProjectZMultiGameMode>();
+	if (ProjectZMultiGameMode)
+	{
+		ProjectZMultiGameMode->RequestRespawn(this,Controller);
+	}
 }
 void AProjectZCharacter::PlayHitReactMontage()
 {
@@ -121,6 +190,16 @@ void AProjectZCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const
 	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
 	UpdateHUDHealth();
 	PlayHitReactMontage();
+	if (Health == 0.f)
+	{
+		AProjectZMultiGameMode* ProjectZMultiGameMode = GetWorld()->GetAuthGameMode<AProjectZMultiGameMode>();
+		if (ProjectZMultiGameMode)
+		{
+			ProjectZPlayerController = ProjectZPlayerController == nullptr ? Cast<AProjectZPlayerController>(Controller) : ProjectZPlayerController;
+			AProjectZPlayerController* AttackerController = Cast<AProjectZPlayerController>(InstigatorController);
+			ProjectZMultiGameMode->PlayerEliminated(this, ProjectZPlayerController, AttackerController);
+		}
+	}
 }
 void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -420,7 +499,11 @@ void AProjectZCharacter::OnRep_Health()
 {
 	//클라이언트라면 서버의 값 복제로 Health값 변경된 걸 알고나면 OnRep_Health호출
 	UpdateHUDHealth();
-	PlayHitReactMontage();
+	if (!bElimmed)
+	{
+		PlayHitReactMontage();
+	}
+	
 }
 void AProjectZCharacter::UpdateHUDHealth()
 {
@@ -428,6 +511,24 @@ void AProjectZCharacter::UpdateHUDHealth()
 	if (ProjectZPlayerController)
 	{
 		ProjectZPlayerController->SetHUDHealth(Health, MaxHealth);
+	}
+}
+void AProjectZCharacter::UpdateDissolveMaterial(float DissolveValue)
+{
+	if (DynamicDissolveMaterialInstance1 && DynamicDissolveMaterialInstance2 && DynamicDissolveMaterialInstance3)
+	{
+		DynamicDissolveMaterialInstance1->SetScalarParameterValue(TEXT("Dissolve"), DissolveValue);
+		DynamicDissolveMaterialInstance2->SetScalarParameterValue(TEXT("Dissolve"), DissolveValue);
+		DynamicDissolveMaterialInstance3->SetScalarParameterValue(TEXT("Dissolve"), DissolveValue);
+	}
+}
+void AProjectZCharacter::StartDissolve()
+{
+	DissolveTrack.BindDynamic(this,&AProjectZCharacter::UpdateDissolveMaterial);
+	if (DissolveCurve&&DissolveTimeline)
+	{
+		DissolveTimeline->AddInterpFloat(DissolveCurve,DissolveTrack);
+		DissolveTimeline->Play();
 	}
 }
 //Weapon Sphere overlap시 소유주 위젯 show 추가 check안할시 위젯 모두에게 나옴

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Components/TimelineComponent.h"
 #include "InputActionValue.h"
 #include "ProjectZ/ProjectZTypes/TurnInPlace.h"
 #include "ProjectZ/Interfaces/InteractCrosshairsInterface.h"
@@ -27,7 +28,13 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
 	void PlayFireMontage(bool bAiming);
+	void PlayElimMontage();
 	virtual void OnRep_ReplicatedMovement() override;
+	void Elim();
+	UFUNCTION(NetMulticast,Reliable)
+	void MulticastElim();
+
+	class AProjectZPlayerController* ProjectZPlayerController;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -101,7 +108,9 @@ private:
 	class UAnimMontage* FireWeaponMontage;
 	UPROPERTY(EditAnywhere, Category = Combat)
 	class UAnimMontage* HitReactMontage;
-
+	UPROPERTY(EditAnywhere, Category = Combat)
+	class UAnimMontage* ElimMontage;
+	//CamaraHide
 	void HideCameraCollisionToCharacter();
 	UPROPERTY(EditAnywhere)
 	float CameraThreshold = 150.f;
@@ -124,7 +133,38 @@ private:
 	UFUNCTION()
 	void OnRep_Health();
 
-	class AProjectZPlayerController* ProjectZPlayerController;
+	bool bElimmed = false;
+
+	FTimerHandle ElimTimer;
+	UPROPERTY(EditDefaultsOnly)
+	float ElimDelay = 5.f;
+	void ElimTimerFinished();
+
+	//Dissolve Effect
+	UPROPERTY(VisibleAnywhere)
+	UTimelineComponent* DissolveTimeline;
+	FOnTimelineFloat DissolveTrack;
+	UPROPERTY(EditAnywhere)
+	UCurveFloat* DissolveCurve;
+	UFUNCTION()
+	void UpdateDissolveMaterial(float DissolveValue);
+
+	void StartDissolve();
+
+	//dynamic instance chage at runtime
+	UPROPERTY(VisibleAnywhere,Category=Elim)
+	UMaterialInstanceDynamic* DynamicDissolveMaterialInstance1;
+	UPROPERTY(VisibleAnywhere, Category = Elim)
+	UMaterialInstanceDynamic* DynamicDissolveMaterialInstance2;
+	UPROPERTY(VisibleAnywhere, Category = Elim)
+	UMaterialInstanceDynamic* DynamicDissolveMaterialInstance3;
+	//Material instance set at blueprint
+	UPROPERTY(EditAnywhere, Category = Elim)
+	UMaterialInstance* DissolveMaterialInstnace1;
+	UPROPERTY(EditAnywhere, Category = Elim)
+	UMaterialInstance* DissolveMaterialInstnace2;
+	UPROPERTY(EditAnywhere, Category = Elim)
+	UMaterialInstance* DissolveMaterialInstnace3;
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();
@@ -136,4 +176,5 @@ public:
 	FVector GetHitTarget() const;
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone; }
+	FORCEINLINE bool IsElimmed() const { return bElimmed; }
 };

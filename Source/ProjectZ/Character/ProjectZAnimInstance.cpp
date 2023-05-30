@@ -44,6 +44,8 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	TurnInPlace = ProjectZCharacter->GetTurnInPlace();
 	//RotateRootBone
 	bRotateRootBone = ProjectZCharacter->ShouldRotateRootBone();
+	//Elimmeted
+	bElimmed = ProjectZCharacter->IsElimmed();
 	//YawOffset
 	FRotator AimRotation = ProjectZCharacter->GetBaseAimRotation();
 	FRotator MovementRotaion = UKismetMathLibrary::MakeRotFromX(ProjectZCharacter->GetVelocity());
