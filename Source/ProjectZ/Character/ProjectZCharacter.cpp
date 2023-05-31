@@ -8,6 +8,9 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
 #include "ProjectZ/Weapon/Weapon.h"
@@ -129,6 +132,14 @@ void AProjectZCharacter::Elim()
 		ElimDelay
 	);
 }
+void AProjectZCharacter::Destroyed()
+{
+	Super::Destroyed();
+	if (ElimBotComponent)
+	{
+		ElimBotComponent->DestroyComponent();
+	}
+}
 void AProjectZCharacter::MulticastElim_Implementation()
 {
 
@@ -163,6 +174,13 @@ void AProjectZCharacter::MulticastElim_Implementation()
 	// 충돌 제거
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	//spawn Elimbot
+	if (ElimBotEffect)
+	{
+		FVector ElimBotSpawnPoint(GetActorLocation().X,GetActorLocation().Y,GetActorLocation().Z+200.f);
+		ElimBotComponent=UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),ElimBotEffect,ElimBotSpawnPoint,GetActorRotation());
+	}
 }
 void AProjectZCharacter::ElimTimerFinished()
 {
@@ -170,6 +188,10 @@ void AProjectZCharacter::ElimTimerFinished()
 	if (ProjectZMultiGameMode)
 	{
 		ProjectZMultiGameMode->RequestRespawn(this,Controller);
+	}
+	if (ElimBotComponent)
+	{
+		ElimBotComponent->DestroyComponent();
 	}
 }
 void AProjectZCharacter::PlayHitReactMontage()

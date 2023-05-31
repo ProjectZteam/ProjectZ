@@ -33,7 +33,7 @@ public:
 	void Elim();
 	UFUNCTION(NetMulticast,Reliable)
 	void MulticastElim();
-
+	virtual void Destroyed() override;
 	class AProjectZPlayerController* ProjectZPlayerController;
 protected:
 	// Called when the game starts or when spawned
@@ -165,6 +165,14 @@ private:
 	UMaterialInstance* DissolveMaterialInstnace2;
 	UPROPERTY(EditAnywhere, Category = Elim)
 	UMaterialInstance* DissolveMaterialInstnace3;
+
+	//Elim bot
+	UPROPERTY(EditAnywhere)
+	UParticleSystem* ElimBotEffect;
+	UPROPERTY(VisibleAnywhere)
+	UParticleSystemComponent* ElimBotComponent;
+	UPROPERTY(EditAnywhere)
+	class USoundCue* ElimBotSound;
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();
