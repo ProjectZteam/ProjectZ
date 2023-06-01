@@ -17,6 +17,7 @@
 #include "ProjectZ/ProjectZComponents/CombatComponent.h"
 #include "ProjectZ/ProjectZ.h"
 #include "ProjectZ/PlayerController/ProjectZPlayerController.h"
+#include "ProjectZ/PlayerState/ProjectZPlayerState.h"
 #include "ProjectZ/GameMode/ProjectZMultiGameMode.h"
 #include "ProjectZAnimInstance.h"
 #include "Components/InputComponent.h"
@@ -90,6 +91,26 @@ void AProjectZCharacter::BeginPlay()
 		//ApplyDamage 함수가 위임자에의해 호출 이는 다시 ReceiveDamage 호출 (서버만 호출) //this는 ApplyDamage에서 넘어온 OtherActor
 		OnTakeAnyDamage.AddDynamic(this,&AProjectZCharacter::ReceiveDamage);
 	}
+}
+// Called every frame
+void AProjectZCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())//Local or Server
+	{
+		CalculateAimOffset(DeltaTime);
+	}
+	else
+	{
+		TimeSinceLastMovementReplication += DeltaTime;
+		if (TimeSinceLastMovementReplication > 0.25f)
+		{
+			OnRep_ReplicatedBasedMovement();
+		}
+		CalculateAO_Pitch();
+	}
+	HideCameraCollisionToCharacter();
+	PullInit();
 }
 void AProjectZCharacter::PlayFireMontage(bool bAiming)
 {
@@ -229,25 +250,7 @@ void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AProjectZCharacter, OverlappingWeapon,COND_OwnerOnly);
 	DOREPLIFETIME(AProjectZCharacter, Health);
 }
-// Called every frame
-void AProjectZCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy&& IsLocallyControlled())//Local or Server
-	{
-		CalculateAimOffset(DeltaTime);
-	}
-	else
-	{
-		TimeSinceLastMovementReplication += DeltaTime;
-		if (TimeSinceLastMovementReplication > 0.25f)
-		{
-			OnRep_ReplicatedBasedMovement();
-		}
-		CalculateAO_Pitch();
-	}
-	HideCameraCollisionToCharacter();
-}
+
 void AProjectZCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D MoveValue= Value.Get<FVector2D>();
@@ -533,6 +536,18 @@ void AProjectZCharacter::UpdateHUDHealth()
 	if (ProjectZPlayerController)
 	{
 		ProjectZPlayerController->SetHUDHealth(Health, MaxHealth);
+	}
+}
+void AProjectZCharacter::PullInit()
+{
+	if (ProjectZPlayerState == nullptr)
+	{
+		ProjectZPlayerState = GetPlayerState<AProjectZPlayerState>();
+		if (ProjectZPlayerState)
+		{
+			ProjectZPlayerState->AddScore(0.f);
+			ProjectZPlayerState->AddDefeats(0);
+		}
 	}
 }
 void AProjectZCharacter::UpdateDissolveMaterial(float DissolveValue)

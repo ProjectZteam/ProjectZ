@@ -42,8 +42,11 @@ protected:
 
 	void SetHUDCrosshairs(float DeltaTime);
 private:
+	UPROPERTY()
 	class AProjectZCharacter* Character;
+	UPROPERTY()
 	class AProjectZPlayerController* Controller;
+	UPROPERTY()
 	class AProjectZHUD* HUD;
 	FHUDSet HUDSet;
 	float CrosshairVelocityFactor;

@@ -4,11 +4,22 @@
 #include "ProjectZMultiGameMode.h"
 #include "ProjectZ/Character/ProjectZCharacter.h"
 #include "ProjectZ/PlayerController/ProjectZPlayerController.h"
+#include "ProjectZ/PlayerState/ProjectZPlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
 
 void AProjectZMultiGameMode::PlayerEliminated(class AProjectZCharacter* ElimmedCharacter, class AProjectZPlayerController* VictimController, AProjectZPlayerController* AttackerController)
 {
+	AProjectZPlayerState* AttackerPlayerState = AttackerController ? Cast<AProjectZPlayerState>(AttackerController->PlayerState): nullptr;
+	AProjectZPlayerState* VictimPlayerState = VictimController ? Cast<AProjectZPlayerState>(VictimController->PlayerState) : nullptr;
+	if (AttackerPlayerState && AttackerPlayerState != VictimPlayerState)
+	{
+		AttackerPlayerState->AddScore(1.f);
+	}
+	if (VictimPlayerState)
+	{
+		VictimPlayerState->AddDefeats(1);
+	}
 	if (ElimmedCharacter)
 	{
 		ElimmedCharacter->Elim();

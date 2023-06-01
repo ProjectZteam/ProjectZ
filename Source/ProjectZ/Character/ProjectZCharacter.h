@@ -34,6 +34,7 @@ public:
 	UFUNCTION(NetMulticast,Reliable)
 	void MulticastElim();
 	virtual void Destroyed() override;
+	UPROPERTY()
 	class AProjectZPlayerController* ProjectZPlayerController;
 protected:
 	// Called when the game starts or when spawned
@@ -77,6 +78,8 @@ protected:
 	UFUNCTION()
 	void ReceiveDamage(AActor* DamagedActor,float Damage,const UDamageType* DamageType, class AController* InstigatorController,AActor* DamageCauser);
 	void UpdateHUDHealth();
+	//캐릭터 HUD에 관련된 정보 pull
+	void PullInit();
 private:
 	UPROPERTY(VisibleAnywhere, Category=Camera)
 	class USpringArmComponent* CameraBoom;
@@ -173,6 +176,8 @@ private:
 	UParticleSystemComponent* ElimBotComponent;
 	UPROPERTY(EditAnywhere)
 	class USoundCue* ElimBotSound;
+	UPROPERTY()
+	class AProjectZPlayerState* ProjectZPlayerState;
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();
@@ -185,4 +190,6 @@ public:
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone; }
 	FORCEINLINE bool IsElimmed() const { return bElimmed; }
+	FORCEINLINE float GetHealth() const { return Health; }
+	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 };
