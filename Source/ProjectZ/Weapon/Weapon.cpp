@@ -10,6 +10,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "ProjectZ/Character/ProjectZCharacter.h"
+#include "ProjectZ/PlayerController/ProjectZPlayerController.h"
 // Sets default values
 AWeapon::AWeapon()
 {
@@ -57,6 +58,7 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AWeapon, WeaponState);
+	DOREPLIFETIME(AWeapon,Ammo);
 }
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
@@ -92,6 +94,40 @@ void AWeapon::OnRep_WeaponState()
 		WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		break;
 	}
+}
+
+void AWeapon::OnRep_Ammo()
+{
+	SetHUDAmmo();
+}
+void AWeapon::OnRep_Owner()
+{
+	Super::OnRep_Owner();
+	if (Owner == nullptr)
+	{
+		ProjectZOwnerCharacter = nullptr;
+		ProjectZOwnerController = nullptr;
+	}
+	else
+	{
+		SetHUDAmmo();
+	}
+	
+}
+void AWeapon::SetHUDAmmo()
+{
+	ProjectZOwnerCharacter = ProjectZOwnerCharacter == nullptr ? Cast<AProjectZCharacter>(GetOwner()) : ProjectZOwnerCharacter;
+	ProjectZOwnerController = ProjectZOwnerController == nullptr ? Cast<AProjectZPlayerController>(ProjectZOwnerCharacter->Controller) : ProjectZOwnerController;
+	if (ProjectZOwnerController)
+	{
+		ProjectZOwnerController->SetHUDWeaponAmmo(Ammo);
+	}
+}
+//update ammo ui
+void AWeapon::SpendRound()
+{
+	--Ammo;
+	SetHUDAmmo();
 }
 
 void AWeapon::SetWeaponState(EWeaponState State)
@@ -152,6 +188,7 @@ void AWeapon::Fire(const FVector& HitTarget)
 			
 		}
 	}
+	SpendRound();
 }
 
 void AWeapon::Dropped()
@@ -160,5 +197,7 @@ void AWeapon::Dropped()
 	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld,true);
 	WeaponMesh->DetachFromComponent(DetachRules);
 	SetOwner(nullptr);
+	ProjectZOwnerCharacter = nullptr;
+	ProjectZOwnerController = nullptr;
 }
 

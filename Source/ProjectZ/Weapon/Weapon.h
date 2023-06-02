@@ -24,6 +24,8 @@ public:
 	AWeapon();
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void OnRep_Owner() override;
+	void SetHUDAmmo();
 	void ShowPickupWidget(bool bShowWidget);
 	virtual void Fire(const FVector& HitTarget);
 	void Dropped();
@@ -84,8 +86,18 @@ private:
 	class UAnimationAsset* FireAnimation;
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	TSubclassOf<class ACartridge> CartridgeClass;
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_Ammo, Category = "Weapon Properties")
+	int32 Ammo;
+	UFUNCTION()
+	void OnRep_Ammo();
+	void SpendRound();
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	int32 AmmoMaxCapacity;
+	UPROPERTY()
+	class AProjectZCharacter* ProjectZOwnerCharacter;
+	UPROPERTY()
+	class AProjectZPlayerController* ProjectZOwnerController;
 
-	
 public:	
 	void SetWeaponState(EWeaponState State);
 	FORCEINLINE USphereComponent* GetAreaSphere() const { return AreaSphere; }

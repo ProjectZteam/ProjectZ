@@ -163,7 +163,10 @@ void AProjectZCharacter::Destroyed()
 }
 void AProjectZCharacter::MulticastElim_Implementation()
 {
-
+	if (ProjectZPlayerController)
+	{
+		ProjectZPlayerController->SetHUDWeaponAmmo(0);
+	}
 	bElimmed = true;
 	PlayElimMontage();
 
@@ -292,8 +295,7 @@ void AProjectZCharacter::Jump()
 }
 void AProjectZCharacter::Equip()
 {
-	//Temp 코드 후에 무기 추가되면 EquippedWeapon null검사문장 삭제
-	if (Combat&&Combat->EquippedWeapon==nullptr)
+	if (Combat)
 	{
 		if (HasAuthority())//서버인경우
 		{
