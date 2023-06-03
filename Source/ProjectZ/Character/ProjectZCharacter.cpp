@@ -18,6 +18,7 @@
 #include "ProjectZ/ProjectZ.h"
 #include "ProjectZ/PlayerController/ProjectZPlayerController.h"
 #include "ProjectZ/PlayerState/ProjectZPlayerState.h"
+#include "ProjectZ/Weapon/WeaponTypes.h"
 #include "ProjectZ/GameMode/ProjectZMultiGameMode.h"
 #include "ProjectZAnimInstance.h"
 #include "Components/InputComponent.h"
@@ -125,6 +126,24 @@ void AProjectZCharacter::PlayFireMontage(bool bAiming)
 		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
+void AProjectZCharacter::PlayReloadMontage()
+{
+	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && ReloadMontage)
+	{
+		AnimInstance->Montage_Play(ReloadMontage);
+		FName SectionName;
+		switch (Combat->EquippedWeapon->GetWeaponType())
+		{
+		case EWeaponType::EWT_AssaultRifle:
+			SectionName = FName("RifleReload");
+			break;
+		}
+		AnimInstance->Montage_JumpToSection(SectionName);
+	}
+}
 void AProjectZCharacter::PlayElimMontage()
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
@@ -166,6 +185,7 @@ void AProjectZCharacter::MulticastElim_Implementation()
 	if (ProjectZPlayerController)
 	{
 		ProjectZPlayerController->SetHUDWeaponAmmo(0);
+		ProjectZPlayerController->SetHUDCarriedAmmo(0);
 	}
 	bElimmed = true;
 	PlayElimMontage();
@@ -343,6 +363,7 @@ void AProjectZCharacter::AimButtonPressed()
 	}
 	else
 	{
+		if(Combat->EquippedWeapon)
 		Combat->SetAiming(true);
 	}
 }
@@ -366,6 +387,13 @@ void AProjectZCharacter::FireButtonReleased()
 	if (Combat)
 	{
 		Combat->FireButtonPressed(false);
+	}
+}
+void AProjectZCharacter::ReloadButtonPressed()
+{
+	if (Combat)
+	{
+		Combat->Reload();
 	}
 }
 float AProjectZCharacter::CalculateSpeed()
@@ -486,6 +514,7 @@ void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		EnhancedInputComponent->BindAction(AimReleaseAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::AimButtonReleased);
 		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::FireButtonPressed);
 		EnhancedInputComponent->BindAction(FireReleaseAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::FireButtonReleased);
+		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered,this,&AProjectZCharacter::ReloadButtonPressed);
 	}
 }
 

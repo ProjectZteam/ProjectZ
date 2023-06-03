@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "WeaponTypes.h"
 #include "Weapon.generated.h"
 
 UENUM(BlueprintType)
@@ -26,6 +27,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void OnRep_Owner() override;
 	void SetHUDAmmo();
+	bool IsEmptry();
 	void ShowPickupWidget(bool bShowWidget);
 	virtual void Fire(const FVector& HitTarget);
 	void Dropped();
@@ -86,6 +88,7 @@ private:
 	class UAnimationAsset* FireAnimation;
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	TSubclassOf<class ACartridge> CartridgeClass;
+	// 총 최대장전량과 초기 탄약수는 blueprint설정
 	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_Ammo, Category = "Weapon Properties")
 	int32 Ammo;
 	UFUNCTION()
@@ -97,11 +100,13 @@ private:
 	class AProjectZCharacter* ProjectZOwnerCharacter;
 	UPROPERTY()
 	class AProjectZPlayerController* ProjectZOwnerController;
-
+	UPROPERTY(EditAnywhere)
+	EWeaponType WeaponType;
 public:	
 	void SetWeaponState(EWeaponState State);
 	FORCEINLINE USphereComponent* GetAreaSphere() const { return AreaSphere; }
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
 	FORCEINLINE float GetZoomedFOV() const { return ZoomFOV; }
 	FORCEINLINE float GetZoomedInterpSpeed() const { return ZoomInterpSpeed; }
+	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; }
 };

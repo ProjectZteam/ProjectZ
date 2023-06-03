@@ -61,6 +61,17 @@ void AProjectZPlayerController::SetHUDWeaponAmmo(int32 Ammo)
 	}
 }
 
+void AProjectZPlayerController::SetHUDCarriedAmmo(int32 CarriedAmmo)
+{
+	ProjectZHUD = ProjectZHUD == nullptr ? Cast<AProjectZHUD>(GetHUD()) : ProjectZHUD;
+	bool bHUDValid = ProjectZHUD && ProjectZHUD->CharacterOverlay && ProjectZHUD->CharacterOverlay->CarriedAmmoAmount;
+	if (bHUDValid)
+	{
+		FString CarriedText = FString::Printf(TEXT("%d"), CarriedAmmo);
+		ProjectZHUD->CharacterOverlay->CarriedAmmoAmount->SetText(FText::FromString(CarriedText));
+	}
+}
+
 void AProjectZPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);

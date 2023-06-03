@@ -35,6 +35,10 @@ void UCombatComponent::BeginPlay()
 			DefaultFOV = Character->GetFollowCamera()->FieldOfView;
 			CurrentFOV = DefaultFOV;
 		}
+		if (Character->HasAuthority())
+		{
+			InitializeCarriedAmmo();
+		}
 	}
 
 }
@@ -57,6 +61,7 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
 	DOREPLIFETIME(UCombatComponent, bAiming);
+	DOREPLIFETIME_CONDITION(UCombatComponent, CarriedAmmo,COND_OwnerOnly);
 }
 //
 void UCombatComponent::FireButtonPressed(bool bPressed)
@@ -69,7 +74,7 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 }
 void UCombatComponent::Fire()
 {
-	if (bCanFire && EquippedWeapon)
+	if (CanFire() && EquippedWeapon)
 	{
 		bCanFire = false;
 		FHitResult HitResult;
@@ -101,6 +106,25 @@ void UCombatComponent::FireTimerFinished()
 	{
 		Fire();
 	}
+}
+bool UCombatComponent::CanFire()
+{
+	if (EquippedWeapon == nullptr)return false;
+	
+	return !EquippedWeapon->IsEmptry()||!bCanFire;
+}
+void UCombatComponent::OnRep_CarriedAmmo()
+{
+	Controller = Controller == nullptr ? Cast<AProjectZPlayerController>(Character->Controller) : Controller;
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CarriedAmmo);
+	}
+}
+//총기 획득후 초기 휴대 탄약량
+void UCombatComponent::InitializeCarriedAmmo()
+{
+	CarriedAmmoMap.Emplace(EWeaponType::EWT_AssaultRifle, StartingARAmmo);
 }
 //
 void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
@@ -312,8 +336,30 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)//서버만 호출가능
 	//setOwner함수는 이미 Actor클래스에서 OnRep으로 지정되어있음
 	EquippedWeapon->SetOwner(Character);
 	EquippedWeapon->SetHUDAmmo();
+
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+	}
+	Controller = Controller == nullptr ? Cast<AProjectZPlayerController>(Character->Controller) : Controller;
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CarriedAmmo);
+	}
 	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 	Character->bUseControllerRotationYaw = true;
+}
+void UCombatComponent::Reload()
+{
+	if (CarriedAmmo > 0)
+	{
+		ServerReload();
+	}
+}
+void UCombatComponent::ServerReload_Implementation()
+{
+	if (Character == nullptr)return;
+	Character->PlayReloadMontage();
 }
 void UCombatComponent::OnRep_EquippedWeapon()
 {

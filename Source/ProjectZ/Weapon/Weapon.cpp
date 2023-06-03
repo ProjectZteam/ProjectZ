@@ -123,10 +123,14 @@ void AWeapon::SetHUDAmmo()
 		ProjectZOwnerController->SetHUDWeaponAmmo(Ammo);
 	}
 }
+bool AWeapon::IsEmptry()
+{
+	return Ammo<=0;
+}
 //update ammo ui
 void AWeapon::SpendRound()
 {
-	--Ammo;
+	Ammo = FMath::Clamp(Ammo-1,0,AmmoMaxCapacity);
 	SetHUDAmmo();
 }
 

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "ProjectZ/HUD/ProjectZHUD.h"
+#include "ProjectZ/Weapon/WeaponTypes.h"
 #include "CombatComponent.generated.h"
 
 #define TRACE_LENGTH 80000.f
@@ -20,6 +21,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	void EquipWeapon(class AWeapon* WeaponToEquip);
+	void Reload();
 protected:
 	virtual void BeginPlay() override;
 
@@ -41,6 +43,10 @@ protected:
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 
 	void SetHUDCrosshairs(float DeltaTime);
+
+	//Reload RPC
+	UFUNCTION(Server,Reliable)
+	void ServerReload();
 private:
 	UPROPERTY()
 	class AProjectZCharacter* Character;
@@ -74,6 +80,17 @@ private:
 	bool bCanFire = true;
 	void StartFireTimer();
 	void FireTimerFinished();
+	bool CanFire();
+	UPROPERTY(ReplicatedUsing=OnRep_CarriedAmmo)
+	int32 CarriedAmmo;
+	//ÇöÀç ÀåÂø¹«±â Åº¾àº¸À¯·®
+	UFUNCTION()
+	void OnRep_CarriedAmmo();
+	TMap<EWeaponType, int32> CarriedAmmoMap;
+	//ÃÑ±â ÃÊ±â º¸À¯ ÃÑ Åº¾à·®
+	UPROPERTY(EditAnywhere)
+	int32 StartingARAmmo = 210;
+	void InitializeCarriedAmmo();
 	//
 	bool bFireButtonPressed;
 	UPROPERTY(EditAnywhere)
