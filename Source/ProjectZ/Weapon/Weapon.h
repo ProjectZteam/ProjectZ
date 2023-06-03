@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "WeaponTypes.h"
 #include "Weapon.generated.h"
 
 UENUM(BlueprintType)
@@ -24,9 +25,12 @@ public:
 	AWeapon();
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void OnRep_Owner() override;
+	void SetHUDAmmo();
+	bool IsEmptry();
 	void ShowPickupWidget(bool bShowWidget);
 	virtual void Fire(const FVector& HitTarget);
-
+	void Dropped();
 	//무기 크로스헤어 텍스쳐들
 	UPROPERTY(Editanywhere, Category = Crosshairs)
 	class UTexture2D* CrosshairCenter;
@@ -44,6 +48,10 @@ public:
 	float ZoomFOV = 30.f;
 	UPROPERTY(EditAnywhere)
 	float ZoomInterpSpeed = 20.f;
+	UPROPERTY(EditAnywhere, Category = Combat)
+	float FireDelay = 0.15f;
+	UPROPERTY(EditAnywhere, Category = Combat)
+	bool bAutomatic = true;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -80,12 +88,25 @@ private:
 	class UAnimationAsset* FireAnimation;
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	TSubclassOf<class ACartridge> CartridgeClass;
-
-	
+	// 총 최대장전량과 초기 탄약수는 blueprint설정
+	UPROPERTY(EditAnywhere,ReplicatedUsing=OnRep_Ammo, Category = "Weapon Properties")
+	int32 Ammo;
+	UFUNCTION()
+	void OnRep_Ammo();
+	void SpendRound();
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	int32 AmmoMaxCapacity;
+	UPROPERTY()
+	class AProjectZCharacter* ProjectZOwnerCharacter;
+	UPROPERTY()
+	class AProjectZPlayerController* ProjectZOwnerController;
+	UPROPERTY(EditAnywhere)
+	EWeaponType WeaponType;
 public:	
 	void SetWeaponState(EWeaponState State);
 	FORCEINLINE USphereComponent* GetAreaSphere() const { return AreaSphere; }
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
 	FORCEINLINE float GetZoomedFOV() const { return ZoomFOV; }
 	FORCEINLINE float GetZoomedInterpSpeed() const { return ZoomInterpSpeed; }
+	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; }
 };

@@ -42,6 +42,10 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	bAiming = ProjectZCharacter->IsAiming();
 	//TurnInPlace
 	TurnInPlace = ProjectZCharacter->GetTurnInPlace();
+	//RotateRootBone
+	bRotateRootBone = ProjectZCharacter->ShouldRotateRootBone();
+	//Elimmeted
+	bElimmed = ProjectZCharacter->IsElimmed();
 	//YawOffset
 	FRotator AimRotation = ProjectZCharacter->GetBaseAimRotation();
 	FRotator MovementRotaion = UKismetMathLibrary::MakeRotFromX(ProjectZCharacter->GetVelocity());
@@ -62,6 +66,16 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 
 	if (bWeaponEquipped && EquippedWeapon&&EquippedWeapon->GetWeaponMesh()&&ProjectZCharacter->GetMesh())
 	{
+		if (ProjectZCharacter->IsLocallyControlled())
+		{
+			bLocallyControlled = true;
+			FTransform RightHandTransform = ProjectZCharacter->GetMesh()->GetSocketTransform(FName("hand_r"), ERelativeTransformSpace::RTS_World);
+			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(RightHandTransform.GetLocation(), RightHandTransform.GetLocation() + (RightHandTransform.GetLocation() - ProjectZCharacter->GetHitTarget()));
+			RightHandRotation = LookAtRotation;
+
+			//Test player said it is weird cause of slow weapon rotate so just direct in LookAtRotation
+			//RightHandRotation = FMath::RInterpTo(RightHandRotation, LookAtRotation, DeltaTime, 90.f);
+		}
 		//Get Weapon Socket and attach to Character Right Hand Bone
 		LeftHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("LeftHandSocket"),ERelativeTransformSpace::RTS_World);
 		FVector OutPosition;
@@ -77,13 +91,7 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 		//DrawDebugLine(GetWorld(), MuzzleTransform.GetLocation(),ProjectZCharacter->GetHitTarget(),FColor::Cyan);
 		//
 
-		if (ProjectZCharacter->IsLocallyControlled())
-		{
-			bLocallyControlled = true;
-			FTransform RightHandTransform = ProjectZCharacter->GetMesh()->GetSocketTransform(FName("hand_r"), ERelativeTransformSpace::RTS_World);
-			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(RightHandTransform.GetLocation(), RightHandTransform.GetLocation() + (RightHandTransform.GetLocation() - ProjectZCharacter->GetHitTarget()));
-			RightHandRotation = FMath::RInterpTo(RightHandRotation,LookAtRotation, DeltaTime ,30.f);
-		}
+		
 		
 	}
 }

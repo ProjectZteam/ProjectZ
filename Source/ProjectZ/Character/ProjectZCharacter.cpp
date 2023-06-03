@@ -8,10 +8,18 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "TimerManager.h"
 #include "ProjectZ/Weapon/Weapon.h"
 #include "ProjectZ/ProjectZComponents/CombatComponent.h"
 #include "ProjectZ/ProjectZ.h"
+#include "ProjectZ/PlayerController/ProjectZPlayerController.h"
+#include "ProjectZ/PlayerState/ProjectZPlayerState.h"
+#include "ProjectZ/Weapon/WeaponTypes.h"
+#include "ProjectZ/GameMode/ProjectZMultiGameMode.h"
 #include "ProjectZAnimInstance.h"
 #include "Components/InputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -53,6 +61,8 @@ AProjectZCharacter::AProjectZCharacter()
 	NetUpdateFrequency = 66.f;
 	MinNetUpdateFrequency = 33.f;
 	bIsCrouchPressed = false;
+
+	DissolveTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("DissolveTimelineComponent"));
 }
 void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른 클래스가 최대한 빨리 초기화를 진행하고싶을 때 사용
 {
@@ -61,6 +71,47 @@ void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른
 	{
 		Combat->Character = this;
 	}
+}
+// Called when the game starts or when spawned
+void AProjectZCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UpdateHUDHealth();
+
+	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		{
+			Subsystem->AddMappingContext(ProjectZMappingContext, 0);
+		}
+	}
+
+	if (HasAuthority())
+	{
+		//ApplyDamage 함수가 위임자에의해 호출 이는 다시 ReceiveDamage 호출 (서버만 호출) //this는 ApplyDamage에서 넘어온 OtherActor
+		OnTakeAnyDamage.AddDynamic(this,&AProjectZCharacter::ReceiveDamage);
+	}
+}
+// Called every frame
+void AProjectZCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())//Local or Server
+	{
+		CalculateAimOffset(DeltaTime);
+	}
+	else
+	{
+		TimeSinceLastMovementReplication += DeltaTime;
+		if (TimeSinceLastMovementReplication > 0.25f)
+		{
+			OnRep_ReplicatedBasedMovement();
+		}
+		CalculateAO_Pitch();
+	}
+	HideCameraCollisionToCharacter();
+	PullInit();
 }
 void AProjectZCharacter::PlayFireMontage(bool bAiming)
 {
@@ -75,6 +126,118 @@ void AProjectZCharacter::PlayFireMontage(bool bAiming)
 		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
+void AProjectZCharacter::PlayReloadMontage()
+{
+	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && ReloadMontage)
+	{
+		AnimInstance->Montage_Play(ReloadMontage);
+		FName SectionName;
+		switch (Combat->EquippedWeapon->GetWeaponType())
+		{
+		case EWeaponType::EWT_AssaultRifle:
+			SectionName = FName("RifleReload");
+			break;
+		}
+		AnimInstance->Montage_JumpToSection(SectionName);
+	}
+}
+void AProjectZCharacter::PlayElimMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && ElimMontage)
+	{
+		AnimInstance->Montage_Play(ElimMontage);
+	}
+}
+void AProjectZCharacter::OnRep_ReplicatedMovement()
+{
+	Super::OnRep_ReplicatedMovement();
+	SimProxiesTurn();
+	TimeSinceLastMovementReplication = 0.f;
+}
+void AProjectZCharacter::Elim()
+{
+	if (Combat && Combat->EquippedWeapon)
+	{
+		Combat->EquippedWeapon->Dropped();
+	}
+	MulticastElim();
+	GetWorldTimerManager().SetTimer(
+		ElimTimer,
+		this,
+		&AProjectZCharacter::ElimTimerFinished,
+		ElimDelay
+	);
+}
+void AProjectZCharacter::Destroyed()
+{
+	Super::Destroyed();
+	if (ElimBotComponent)
+	{
+		ElimBotComponent->DestroyComponent();
+	}
+}
+void AProjectZCharacter::MulticastElim_Implementation()
+{
+	if (ProjectZPlayerController)
+	{
+		ProjectZPlayerController->SetHUDWeaponAmmo(0);
+		ProjectZPlayerController->SetHUDCarriedAmmo(0);
+	}
+	bElimmed = true;
+	PlayElimMontage();
+
+	// dissolve시작
+	if (DissolveMaterialInstnace1&& DissolveMaterialInstnace2&& DissolveMaterialInstnace3)
+	{
+		DynamicDissolveMaterialInstance1 = UMaterialInstanceDynamic::Create(DissolveMaterialInstnace1,this);
+		DynamicDissolveMaterialInstance2 = UMaterialInstanceDynamic::Create(DissolveMaterialInstnace2, this);
+		DynamicDissolveMaterialInstance3 = UMaterialInstanceDynamic::Create(DissolveMaterialInstnace3, this);
+
+		GetMesh()->SetMaterial(0, DynamicDissolveMaterialInstance1);
+		DynamicDissolveMaterialInstance1->SetScalarParameterValue(TEXT("Dissolve"), 0.55f);
+		DynamicDissolveMaterialInstance1->SetScalarParameterValue(TEXT("Glow"), 200.f);
+		GetMesh()->SetMaterial(1, DynamicDissolveMaterialInstance2);
+		DynamicDissolveMaterialInstance2->SetScalarParameterValue(TEXT("Dissolve"), 0.55f);
+		DynamicDissolveMaterialInstance2->SetScalarParameterValue(TEXT("Glow"), 200.f);
+		GetMesh()->SetMaterial(2, DynamicDissolveMaterialInstance3);
+		DynamicDissolveMaterialInstance3->SetScalarParameterValue(TEXT("Dissolve"), 0.55f);
+		DynamicDissolveMaterialInstance3->SetScalarParameterValue(TEXT("Glow"), 200.f);
+	}
+	StartDissolve();
+	// 캐릭터 무브먼트 제거
+	GetCharacterMovement()->DisableMovement();
+	GetCharacterMovement()->StopMovementImmediately();
+	if (ProjectZPlayerController)
+	{
+		DisableInput(ProjectZPlayerController);
+	}
+	// 충돌 제거
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	//spawn Elimbot
+	if (ElimBotEffect)
+	{
+		FVector ElimBotSpawnPoint(GetActorLocation().X,GetActorLocation().Y,GetActorLocation().Z+200.f);
+		ElimBotComponent=UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),ElimBotEffect,ElimBotSpawnPoint,GetActorRotation());
+	}
+}
+void AProjectZCharacter::ElimTimerFinished()
+{
+	AProjectZMultiGameMode* ProjectZMultiGameMode = GetWorld()->GetAuthGameMode<AProjectZMultiGameMode>();
+	if (ProjectZMultiGameMode)
+	{
+		ProjectZMultiGameMode->RequestRespawn(this,Controller);
+	}
+	if (ElimBotComponent)
+	{
+		ElimBotComponent->DestroyComponent();
+	}
+}
 void AProjectZCharacter::PlayHitReactMontage()
 {
 	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
@@ -87,31 +250,30 @@ void AProjectZCharacter::PlayHitReactMontage()
 		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
+void AProjectZCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser)
+{
+	//클라나 서버의 Health 변경 후 서버에 의해 복제
+	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
+	UpdateHUDHealth();
+	PlayHitReactMontage();
+	if (Health == 0.f)
+	{
+		AProjectZMultiGameMode* ProjectZMultiGameMode = GetWorld()->GetAuthGameMode<AProjectZMultiGameMode>();
+		if (ProjectZMultiGameMode)
+		{
+			ProjectZPlayerController = ProjectZPlayerController == nullptr ? Cast<AProjectZPlayerController>(Controller) : ProjectZPlayerController;
+			AProjectZPlayerController* AttackerController = Cast<AProjectZPlayerController>(InstigatorController);
+			ProjectZMultiGameMode->PlayerEliminated(this, ProjectZPlayerController, AttackerController);
+		}
+	}
+}
 void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AProjectZCharacter, OverlappingWeapon,COND_OwnerOnly);
+	DOREPLIFETIME(AProjectZCharacter, Health);
 }
-// Called when the game starts or when spawned
-void AProjectZCharacter::BeginPlay()
-{
-	Super::BeginPlay();
-	
-	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(ProjectZMappingContext,0);
-		}
-	}
-}
-// Called every frame
-void AProjectZCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-	CalculateAimOffset(DeltaTime);
-	HideCameraCollisionToCharacter();
-}
+
 void AProjectZCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D MoveValue= Value.Get<FVector2D>();
@@ -129,8 +291,13 @@ void AProjectZCharacter::Look(const FInputActionValue& Value)
 	const FVector2D LookAxisValue=Value.Get<FVector2D>();
 	if (GetController())
 	{
-		AddControllerYawInput(LookAxisValue.X);
-		AddControllerPitchInput(LookAxisValue.Y);
+		float AimSensitivity = 1.0f;
+		if (Combat && Combat->bAiming)
+		{
+			AimSensitivity = 3.0f;
+		}
+		AddControllerYawInput(LookAxisValue.X/AimSensitivity);
+		AddControllerPitchInput(LookAxisValue.Y/AimSensitivity);
 	}
 }
 void AProjectZCharacter::Jump()
@@ -196,6 +363,7 @@ void AProjectZCharacter::AimButtonPressed()
 	}
 	else
 	{
+		if(Combat->EquippedWeapon)
 		Combat->SetAiming(true);
 	}
 }
@@ -221,18 +389,30 @@ void AProjectZCharacter::FireButtonReleased()
 		Combat->FireButtonPressed(false);
 	}
 }
+void AProjectZCharacter::ReloadButtonPressed()
+{
+	if (Combat)
+	{
+		Combat->Reload();
+	}
+}
+float AProjectZCharacter::CalculateSpeed()
+{
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	return Velocity.Size();
+}
 void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
 {
 	if (Combat && Combat->EquippedWeapon == nullptr) return;
-	FVector Velocity = GetVelocity();
-	Velocity.Z = 0.f;
-	float Speed = Velocity.Size();
+	float Speed = CalculateSpeed();
 
 	bool bIsInAir = GetCharacterMovement()->IsFalling();
 
 	//속도 0이고 공중에 있는게 아니라면 AimOffet Yaw,Pitch 변수 삼각보간으로 계산
 	if (Speed == 0.f && !bIsInAir)
 	{
+		bRotateRootBone = true;
 		FRotator CurrentAimRotation=FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartAimRotation);
 		AO_Yaw = DeltaAimRotation.Yaw;
@@ -244,14 +424,20 @@ void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
 		bUseControllerRotationYaw = true;
 		SetturnInPlace(DeltaTime);
 	}
+	//run or jump
 	if (Speed > 0.f || bIsInAir)
 	{
+		bRotateRootBone = false;
 		StartAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
 		AO_Yaw = 0.f;
 		bUseControllerRotationYaw = true;
 		TurnInPlace = ETurnInPlace::ETIP_NotTurn;
 	}
 	//값 복제시 각도는 압축해서 네트워크전송되기때문에 후처리 필요
+	CalculateAO_Pitch();
+}
+void AProjectZCharacter::CalculateAO_Pitch()
+{
 	AO_Pitch = GetBaseAimRotation().Pitch;
 	if (AO_Pitch > 90.f && !IsLocallyControlled())
 	{
@@ -259,6 +445,37 @@ void AProjectZCharacter::CalculateAimOffset(float DeltaTime)
 		FVector2D OutRange(-90.f, 0.f);
 		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
 	}
+}
+void AProjectZCharacter::SimProxiesTurn()
+{
+	if (Combat==nullptr || Combat->EquippedWeapon == nullptr)return;
+	bRotateRootBone = false;
+	float Speed = CalculateSpeed();
+	if (Speed > 0.f)
+	{
+		TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+		return;
+	}
+	ProxyRotationLastFrame = ProxyRotation;
+	ProxyRotation = GetActorRotation();
+	ProxyYaw=UKismetMathLibrary::NormalizedDeltaRotator(ProxyRotation,ProxyRotationLastFrame).Yaw;
+	if (FMath::Abs(ProxyYaw) > TurnThreshold)
+	{
+		if (ProxyYaw > TurnThreshold)
+		{
+			TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+		}
+		else if (ProxyYaw < -TurnThreshold)
+		{
+			TurnInPlace = ETurnInPlace::ETIP_Left;
+		}
+		else
+		{
+			TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+		}
+		return;
+	}
+	TurnInPlace = ETurnInPlace::ETIP_NotTurn;
 }
 void AProjectZCharacter::SetturnInPlace(float DeltaTime)
 {
@@ -297,6 +514,7 @@ void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		EnhancedInputComponent->BindAction(AimReleaseAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::AimButtonReleased);
 		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::FireButtonPressed);
 		EnhancedInputComponent->BindAction(FireReleaseAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::FireButtonReleased);
+		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered,this,&AProjectZCharacter::ReloadButtonPressed);
 	}
 }
 
@@ -312,10 +530,6 @@ void AProjectZCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 	{
 		LastWeapon->ShowPickupWidget(false);
 	}
-}
-void AProjectZCharacter::MulticastHit_Implementation()
-{
-	PlayHitReactMontage();
 }
 void AProjectZCharacter::HideCameraCollisionToCharacter()
 {
@@ -335,6 +549,54 @@ void AProjectZCharacter::HideCameraCollisionToCharacter()
 		{
 			Combat->EquippedWeapon->GetWeaponMesh()->bOwnerNoSee = false;
 		}
+	}
+}
+void AProjectZCharacter::OnRep_Health()
+{
+	//클라이언트라면 서버의 값 복제로 Health값 변경된 걸 알고나면 OnRep_Health호출
+	UpdateHUDHealth();
+	if (!bElimmed)
+	{
+		PlayHitReactMontage();
+	}
+	
+}
+void AProjectZCharacter::UpdateHUDHealth()
+{
+	ProjectZPlayerController = ProjectZPlayerController == nullptr ? Cast<AProjectZPlayerController>(Controller) : ProjectZPlayerController;
+	if (ProjectZPlayerController)
+	{
+		ProjectZPlayerController->SetHUDHealth(Health, MaxHealth);
+	}
+}
+void AProjectZCharacter::PullInit()
+{
+	if (ProjectZPlayerState == nullptr)
+	{
+		ProjectZPlayerState = GetPlayerState<AProjectZPlayerState>();
+		if (ProjectZPlayerState)
+		{
+			ProjectZPlayerState->AddScore(0.f);
+			ProjectZPlayerState->AddDefeats(0);
+		}
+	}
+}
+void AProjectZCharacter::UpdateDissolveMaterial(float DissolveValue)
+{
+	if (DynamicDissolveMaterialInstance1 && DynamicDissolveMaterialInstance2 && DynamicDissolveMaterialInstance3)
+	{
+		DynamicDissolveMaterialInstance1->SetScalarParameterValue(TEXT("Dissolve"), DissolveValue);
+		DynamicDissolveMaterialInstance2->SetScalarParameterValue(TEXT("Dissolve"), DissolveValue);
+		DynamicDissolveMaterialInstance3->SetScalarParameterValue(TEXT("Dissolve"), DissolveValue);
+	}
+}
+void AProjectZCharacter::StartDissolve()
+{
+	DissolveTrack.BindDynamic(this,&AProjectZCharacter::UpdateDissolveMaterial);
+	if (DissolveCurve&&DissolveTimeline)
+	{
+		DissolveTimeline->AddInterpFloat(DissolveCurve,DissolveTrack);
+		DissolveTimeline->Play();
 	}
 }
 //Weapon Sphere overlap시 소유주 위젯 show 추가 check안할시 위젯 모두에게 나옴

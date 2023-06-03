@@ -10,6 +10,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "ProjectZ/Character/ProjectZCharacter.h"
+#include "ProjectZ/PlayerController/ProjectZPlayerController.h"
 // Sets default values
 AWeapon::AWeapon()
 {
@@ -57,6 +58,7 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AWeapon, WeaponState);
+	DOREPLIFETIME(AWeapon,Ammo);
 }
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
@@ -82,8 +84,54 @@ void AWeapon::OnRep_WeaponState()
 	{
 	case EWeaponState::EWS_Equipped:
 		ShowPickupWidget(false);
+		WeaponMesh->SetSimulatePhysics(false);
+		WeaponMesh->SetEnableGravity(false);
+		WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		break;
+	case EWeaponState::EWS_Dropped:
+		WeaponMesh->SetSimulatePhysics(true);
+		WeaponMesh->SetEnableGravity(true);
+		WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		break;
 	}
+}
+
+void AWeapon::OnRep_Ammo()
+{
+	SetHUDAmmo();
+}
+void AWeapon::OnRep_Owner()
+{
+	Super::OnRep_Owner();
+	if (Owner == nullptr)
+	{
+		ProjectZOwnerCharacter = nullptr;
+		ProjectZOwnerController = nullptr;
+	}
+	else
+	{
+		SetHUDAmmo();
+	}
+	
+}
+void AWeapon::SetHUDAmmo()
+{
+	ProjectZOwnerCharacter = ProjectZOwnerCharacter == nullptr ? Cast<AProjectZCharacter>(GetOwner()) : ProjectZOwnerCharacter;
+	ProjectZOwnerController = ProjectZOwnerController == nullptr ? Cast<AProjectZPlayerController>(ProjectZOwnerCharacter->Controller) : ProjectZOwnerController;
+	if (ProjectZOwnerController)
+	{
+		ProjectZOwnerController->SetHUDWeaponAmmo(Ammo);
+	}
+}
+bool AWeapon::IsEmptry()
+{
+	return Ammo<=0;
+}
+//update ammo ui
+void AWeapon::SpendRound()
+{
+	Ammo = FMath::Clamp(Ammo-1,0,AmmoMaxCapacity);
+	SetHUDAmmo();
 }
 
 void AWeapon::SetWeaponState(EWeaponState State)
@@ -94,6 +142,19 @@ void AWeapon::SetWeaponState(EWeaponState State)
 	case EWeaponState::EWS_Equipped:
 		ShowPickupWidget(false);
 		AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		WeaponMesh->SetSimulatePhysics(false);
+		WeaponMesh->SetEnableGravity(false);
+		WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		break;
+	case EWeaponState::EWS_Dropped:
+		if (HasAuthority())
+		{
+			AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+
+		}
+		WeaponMesh->SetSimulatePhysics(true);
+		WeaponMesh->SetEnableGravity(true);
+		WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		break;
 	}
 }
@@ -131,5 +192,16 @@ void AWeapon::Fire(const FVector& HitTarget)
 			
 		}
 	}
+	SpendRound();
+}
+
+void AWeapon::Dropped()
+{
+	SetWeaponState(EWeaponState::EWS_Dropped);
+	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld,true);
+	WeaponMesh->DetachFromComponent(DetachRules);
+	SetOwner(nullptr);
+	ProjectZOwnerCharacter = nullptr;
+	ProjectZOwnerController = nullptr;
 }
 
