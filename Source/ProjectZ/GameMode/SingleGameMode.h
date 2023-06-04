@@ -9,6 +9,7 @@
 /**
  * 
  */
+
 UCLASS()
 class PROJECTZ_API ASingleGameMode : public AGameModeBase
 {
@@ -16,12 +17,13 @@ class PROJECTZ_API ASingleGameMode : public AGameModeBase
 
 
 private:
-	int MonsterCount;
+	int LeftMonsterCount = 0;
 public:
 	UFUNCTION(BlueprintCallable)
-	void DecreaseMonsterCount(int Count);
+	virtual void DecreaseMonsterCount(int Count);
+
+	UFUNCTION(BlueprintCallable)
+	virtual void IncreaseMonsterCount(int Count);
 
 	virtual void StageClear();
-	
-	virtual void BeginPlay() override;
 };

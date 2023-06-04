@@ -5,19 +5,19 @@
 
 void ASingleGameMode::DecreaseMonsterCount(const int Count)
 {
-	MonsterCount -= Count;
-	if(MonsterCount <= 0)
+	LeftMonsterCount -= Count;
+	if(LeftMonsterCount <= 0)
 	{
 		StageClear();
 	}
 }
 
-void ASingleGameMode::StageClear()
+void ASingleGameMode::IncreaseMonsterCount(int Count)
 {
-
+	LeftMonsterCount += Count;
 }
 
-void ASingleGameMode::BeginPlay()
+void ASingleGameMode::StageClear()
 {
-	
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("DEBUG : Stage Clear"));
 }
