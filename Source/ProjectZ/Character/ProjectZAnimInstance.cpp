@@ -4,6 +4,7 @@
 #include "ProjectZAnimInstance.h"
 #include "ProjectZCharacter.h"
 #include "ProjectZ/Weapon/Weapon.h"
+#include "ProjectZ/ProjectZTypes/CombatState.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "DrawDebugHelpers.h"
@@ -76,7 +77,12 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 			//Test player said it is weird cause of slow weapon rotate so just direct in LookAtRotation
 			//RightHandRotation = FMath::RInterpTo(RightHandRotation, LookAtRotation, DeltaTime, 90.f);
 		}
-		//Get Weapon Socket and attach to Character Right Hand Bone
+
+		bUseFABRIK = ProjectZCharacter->GetCombatState() != ECombatState::ECS_Reloading;
+		bUseAimOffsets= ProjectZCharacter->GetCombatState() != ECombatState::ECS_Reloading;
+		bTransformRightHand= ProjectZCharacter->GetCombatState() != ECombatState::ECS_Reloading;
+
+		//Get Weapon Socket and attach to Character Right Hand Bone(FABRIK)
 		LeftHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("LeftHandSocket"),ERelativeTransformSpace::RTS_World);
 		FVector OutPosition;
 		FRotator OutRotation;

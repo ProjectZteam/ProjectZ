@@ -205,3 +205,9 @@ void AWeapon::Dropped()
 	ProjectZOwnerController = nullptr;
 }
 
+void AWeapon::AddAmmo(int32 AmmoToAdd)
+{
+	Ammo = FMath::Clamp(Ammo-AmmoToAdd,0,AmmoMaxCapacity);
+	SetHUDAmmo();
+}
+
