@@ -11,6 +11,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
 // Sets default values for this component's properties
@@ -61,6 +62,7 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
 	DOREPLIFETIME(UCombatComponent, bAiming);
+	DOREPLIFETIME(UCombatComponent, CombatState);
 	DOREPLIFETIME_CONDITION(UCombatComponent, CarriedAmmo,COND_OwnerOnly);
 }
 //
@@ -111,7 +113,7 @@ bool UCombatComponent::CanFire()
 {
 	if (EquippedWeapon == nullptr)return false;
 	
-	return !EquippedWeapon->IsEmptry()||!bCanFire;
+	return !EquippedWeapon->IsEmptry()&&bCanFire&& CombatState==ECombatState::ECS_Unoccupied;
 }
 void UCombatComponent::OnRep_CarriedAmmo()
 {
@@ -271,6 +273,7 @@ void UCombatComponent::SetHUDCrosshairs(float DeltaTime)
 		}
 	}
 }
+
 void UCombatComponent::InterpFOV(float DeltaTime)
 {
 	if (EquippedWeapon == nullptr) return;
@@ -312,7 +315,7 @@ void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& Trac
 void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
 {
 	if (EquippedWeapon == nullptr) return;
-	if (Character)
+	if (Character&& CombatState==ECombatState::ECS_Unoccupied)
 	{
 		Character->PlayFireMontage(bAiming);
 		EquippedWeapon->Fire(TraceHitTarget);
@@ -339,6 +342,52 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)//서버만 호출가능
 
 	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
 	{
+		// 추후 탄약 회복 아이템 추가하면 이코드로 변경(현재는 탄약 회복템이 없어서 초기에 가진 탄약 다쓰면 무기 사용제한이 걸리기에 새로운 무기를 얻을 때마다 초기 Carried값으로 변경해줌
+		//CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+		CarriedAmmo = StartingARAmmo;
+		CarriedAmmoMap[EquippedWeapon->GetWeaponType()] = StartingARAmmo;
+	}
+	Controller = Controller == nullptr ? Cast<AProjectZPlayerController>(Character->Controller) : Controller;
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CarriedAmmo);
+	}
+	if (EquippedWeapon->EquipSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(
+		this,EquippedWeapon->EquipSound,Character->GetActorLocation());
+	}
+	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
+	Character->bUseControllerRotationYaw = true;
+}
+void UCombatComponent::Reload()
+{
+	if (CarriedAmmo > 0 && CombatState!= ECombatState::ECS_Reloading)
+	{
+		ServerReload();
+	}
+}
+void UCombatComponent::FinishReload()
+{
+	// 클라, 서버 모두 호출하게 되기 때문에 실제 값변경을 서버만 제어할 수 있기하기위해 HasAuthority검사
+	if (Character == nullptr) return;
+	if (Character->HasAuthority())
+	{
+		CombatState = ECombatState::ECS_Unoccupied;
+		UpdateAmmoValue();
+	}
+	if (bFireButtonPressed)
+	{
+		Fire();
+	}
+}
+void UCombatComponent::UpdateAmmoValue()
+{
+	if (Character == nullptr || EquippedWeapon == nullptr)return;
+	int32 ReloadAmount = AmountToReload();
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		CarriedAmmoMap[EquippedWeapon->GetWeaponType()] -= ReloadAmount;
 		CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
 	}
 	Controller = Controller == nullptr ? Cast<AProjectZPlayerController>(Character->Controller) : Controller;
@@ -346,20 +395,47 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)//서버만 호출가능
 	{
 		Controller->SetHUDCarriedAmmo(CarriedAmmo);
 	}
-	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
-	Character->bUseControllerRotationYaw = true;
+	EquippedWeapon->AddAmmo(-ReloadAmount);
 }
-void UCombatComponent::Reload()
-{
-	if (CarriedAmmo > 0)
-	{
-		ServerReload();
-	}
-}
+//서버 RPC (클라이언트라면, 이 함수의 내용을 서버가 대신 수행하도록 요청한다
 void UCombatComponent::ServerReload_Implementation()
 {
-	if (Character == nullptr)return;
+	if (Character == nullptr||EquippedWeapon==nullptr)return;
+	// 여기 CombatState 변수변경은 서버가 클라이언트의 변수를 변경하는것
+	CombatState = ECombatState::ECS_Reloading;
+	//클라이언트의 HandleReload를 호출시켜줌
+	HandleReload();
+}
+void UCombatComponent::OnRep_CombatState()
+{
+	switch (CombatState)
+	{
+	case ECombatState::ECS_Reloading:
+		HandleReload();
+		break;
+	case ECombatState::ECS_Unoccupied:
+		if (bFireButtonPressed)
+		{
+			Fire();
+		}
+		break;
+	}
+}
+void UCombatComponent::HandleReload()
+{
 	Character->PlayReloadMontage();
+}
+int32 UCombatComponent::AmountToReload()
+{
+	if (EquippedWeapon == nullptr)return 0;
+	int32 RoomInMag = EquippedWeapon->GetAmmoMaxCapacity() - EquippedWeapon->GetAmmo();
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		int32 AmountCarried = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+		int32 Least = FMath::Min(RoomInMag,AmountCarried);
+		return FMath::Clamp(RoomInMag,0,Least);
+	}
+	return 0;
 }
 void UCombatComponent::OnRep_EquippedWeapon()
 {
@@ -373,6 +449,11 @@ void UCombatComponent::OnRep_EquippedWeapon()
 		}
 		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 		Character->bUseControllerRotationYaw = true;
+		if (EquippedWeapon->EquipSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(
+				this, EquippedWeapon->EquipSound, Character->GetActorLocation());
+		}
 	}
 }
 

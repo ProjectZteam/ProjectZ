@@ -7,6 +7,7 @@
 #include "Components/TimelineComponent.h"
 #include "InputActionValue.h"
 #include "ProjectZ/ProjectZTypes/TurnInPlace.h"
+#include "ProjectZ/ProjectZTypes/CombatState.h"
 #include "ProjectZ/Interfaces/InteractCrosshairsInterface.h"
 #include "ProjectZCharacter.generated.h"
 
@@ -96,7 +97,7 @@ private:
 	class AWeapon* OverlappingWeapon;
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UCombatComponent* Combat;
 	UFUNCTION(Server,Reliable)//신뢰가능 RPC 설정
 	void ServerEquipPressed();
@@ -198,4 +199,5 @@ public:
 	FORCEINLINE bool IsElimmed() const { return bElimmed; }
 	FORCEINLINE float GetHealth() const { return Health; }
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
+	ECombatState GetCombatState() const;
 };

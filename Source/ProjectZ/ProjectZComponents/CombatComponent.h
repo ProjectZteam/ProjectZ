@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "ProjectZ/HUD/ProjectZHUD.h"
 #include "ProjectZ/Weapon/WeaponTypes.h"
+#include "ProjectZ/ProjectZTypes/CombatState.h"
 #include "CombatComponent.generated.h"
 
 #define TRACE_LENGTH 80000.f
@@ -22,6 +23,8 @@ public:
 
 	void EquipWeapon(class AWeapon* WeaponToEquip);
 	void Reload();
+	UFUNCTION(BlueprintCallable)
+	void FinishReload();
 protected:
 	virtual void BeginPlay() override;
 
@@ -47,6 +50,9 @@ protected:
 	//Reload RPC
 	UFUNCTION(Server,Reliable)
 	void ServerReload();
+
+	void HandleReload();
+	int32 AmountToReload();
 private:
 	UPROPERTY()
 	class AProjectZCharacter* Character;
@@ -91,7 +97,12 @@ private:
 	UPROPERTY(EditAnywhere)
 	int32 StartingARAmmo = 210;
 	void InitializeCarriedAmmo();
-	//
+	UPROPERTY(ReplicatedUsing=OnRep_CombatState)
+	ECombatState CombatState=ECombatState::ECS_Unoccupied;
+
+	void UpdateAmmoValue();
+	UFUNCTION()
+	void OnRep_CombatState();
 	bool bFireButtonPressed;
 	UPROPERTY(EditAnywhere)
 	float BaseWalkSpeed;

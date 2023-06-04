@@ -31,6 +31,7 @@ public:
 	void ShowPickupWidget(bool bShowWidget);
 	virtual void Fire(const FVector& HitTarget);
 	void Dropped();
+	void AddAmmo(int32 AmmoToAdd);
 	//무기 크로스헤어 텍스쳐들
 	UPROPERTY(Editanywhere, Category = Crosshairs)
 	class UTexture2D* CrosshairCenter;
@@ -52,6 +53,8 @@ public:
 	float FireDelay = 0.15f;
 	UPROPERTY(EditAnywhere, Category = Combat)
 	bool bAutomatic = true;
+	UPROPERTY(EditAnywhere)
+	class USoundCue* EquipSound;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -109,4 +112,6 @@ public:
 	FORCEINLINE float GetZoomedFOV() const { return ZoomFOV; }
 	FORCEINLINE float GetZoomedInterpSpeed() const { return ZoomInterpSpeed; }
 	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; }
+	FORCEINLINE int32 GetAmmo() const { return Ammo; }
+	FORCEINLINE int32 GetAmmoMaxCapacity() const { return AmmoMaxCapacity; }
 };
