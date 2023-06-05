@@ -185,6 +185,8 @@ private:
 	class USoundCue* ElimBotSound;
 	UPROPERTY()
 	class AProjectZPlayerState* ProjectZPlayerState;
+
+	
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();

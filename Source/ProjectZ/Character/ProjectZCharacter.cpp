@@ -77,6 +77,15 @@ void AProjectZCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (const ULocalPlayer* Player = (GEngine && GetWorld()) ? GEngine->GetFirstGamePlayer(GetWorld()) : nullptr)
+	{
+		UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(Player);
+		if (ProjectZMappingContext)
+		{
+			Subsystem->AddMappingContext(ProjectZMappingContext, 0);
+		}
+	}
+
 	UpdateHUDHealth();
 
 	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))

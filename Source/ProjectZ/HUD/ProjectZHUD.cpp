@@ -4,12 +4,10 @@
 #include "ProjectZHUD.h"
 #include "GameFramework/PlayerController.h"
 #include "CharacterOverlay.h"
-
+#include "Announcement.h"
 void AProjectZHUD::BeginPlay()
 {
 	Super::BeginPlay();
-
-	AddCharacterOverlay();
 }
 
 void AProjectZHUD::AddCharacterOverlay()
@@ -19,6 +17,15 @@ void AProjectZHUD::AddCharacterOverlay()
 	{
 		CharacterOverlay = CreateWidget<UCharacterOverlay>(PlayerController, CharacterOverlayClass);
 		CharacterOverlay->AddToViewport();
+	}
+}
+void AProjectZHUD::AddAnnouncement()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (PlayerController && AnnouncementClass&&Announcement==nullptr)
+	{
+		Announcement = CreateWidget<UAnnouncement>(PlayerController, AnnouncementClass);
+		Announcement->AddToViewport();
 	}
 }
 void AProjectZHUD::DrawHUD()

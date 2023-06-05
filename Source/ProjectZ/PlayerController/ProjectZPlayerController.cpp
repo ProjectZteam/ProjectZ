@@ -3,17 +3,27 @@
 
 #include "ProjectZPlayerController.h"
 #include "ProjectZ/Character/ProjectZCharacter.h"
-#include "ProjectZ//HUD/ProjectZHUD.h"
+#include "ProjectZ/HUD/ProjectZHUD.h"
 #include "ProjectZ/HUD/CharacterOverlay.h"
+#include "ProjectZ/HUD/Announcement.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
+#include "Net/UnrealNetwork.h"
+#include "ProjectZ/GameMode/ProjectZMultiGameMode.h"
+#include "ProjectZ/PlayerState/ProjectZPlayerState.h"
+#include "Kismet/GameplayStatics.h"
+
 void AProjectZPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
-
 	ProjectZHUD=Cast<AProjectZHUD>(GetHUD());
+	ServerCheckMatchState();
+}
+void AProjectZPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-
+	DOREPLIFETIME(AProjectZPlayerController, MatchState);
 }
 void AProjectZPlayerController::Tick(float DeltaTime)
 {
@@ -21,6 +31,7 @@ void AProjectZPlayerController::Tick(float DeltaTime)
 	SetHUDTime();
 
 	CheckTimeSync(DeltaTime);
+	PollInit();
 }
 void AProjectZPlayerController::CheckTimeSync(float DeltaTime)
 {
@@ -31,12 +42,90 @@ void AProjectZPlayerController::CheckTimeSync(float DeltaTime)
 		TimeSyncRunningTime = 0.f;
 	}
 }
+void AProjectZPlayerController::ServerCheckMatchState_Implementation()
+{
+	AProjectZMultiGameMode* GameMode = Cast<AProjectZMultiGameMode>(UGameplayStatics::GetGameMode(this));
+	if (GameMode)
+	{
+		Warmuptime = GameMode->WarmupTime;
+		MatchTime = GameMode->MatchTime;
+		LevelStartingTime = GameMode->LevelStartingTime;
+		MatchState = GameMode->GetMatchState();
+		ClientJoinMidgame(Warmuptime, MatchTime, LevelStartingTime, MatchState);
+
+		if (ProjectZHUD&&MatchState==MatchState::WaitingToStart)
+		{
+			ProjectZHUD->AddAnnouncement();
+		}
+	}
+}
+void AProjectZPlayerController::ClientJoinMidgame_Implementation(float Warmup, float Match, float LevelStarting, FName State)
+{
+	Warmuptime = Warmup;
+	MatchTime = Match;
+	LevelStartingTime = LevelStarting;
+	MatchState = State;
+	OnMatchStateSet(MatchState);
+	if (ProjectZHUD && MatchState == MatchState::WaitingToStart)
+	{
+		ProjectZHUD->AddAnnouncement();
+	}
+}
+void AProjectZPlayerController::OnRep_MatchState()
+{
+	if (MatchState == MatchState::InProgress)
+	{
+		HandleMatchHasStarted();
+	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		HandleCooldown();
+	}
+}
+void AProjectZPlayerController::HandleMatchHasStarted()
+{
+	ProjectZHUD = ProjectZHUD == nullptr ? Cast<AProjectZHUD>(GetHUD()) : ProjectZHUD;
+	if (ProjectZHUD)
+	{
+		ProjectZHUD->AddCharacterOverlay();
+		if (ProjectZHUD->Announcement)
+		{
+			ProjectZHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
+}
+void AProjectZPlayerController::HandleCooldown()
+{
+	ProjectZHUD = ProjectZHUD == nullptr ? Cast<AProjectZHUD>(GetHUD()) : ProjectZHUD;
+	if (ProjectZHUD)
+	{
+		ProjectZHUD->CharacterOverlay->RemoveFromParent();
+		if (ProjectZHUD->Announcement)
+		{
+			ProjectZHUD->Announcement->SetVisibility(ESlateVisibility::Visible);
+		}
+	}
+}
 void AProjectZPlayerController::ReceivedPlayer()
 {
 	Super::ReceivedPlayer();
 	if (IsLocalController())
 	{
 		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
+	}
+}
+
+void AProjectZPlayerController::OnMatchStateSet(FName State)
+{
+	MatchState = State;
+
+	if (MatchState == MatchState::InProgress)
+	{
+		HandleMatchHasStarted();
+	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		HandleCooldown();
 	}
 }
 
@@ -51,6 +140,12 @@ void AProjectZPlayerController::SetHUDHealth(float Health, float MaxHealth)
 		FString HealthText = FString::Printf(TEXT("%d/%d"), FMath::CeilToInt(Health), FMath::CeilToInt(MaxHealth));
 		ProjectZHUD->CharacterOverlay->HealthText->SetText(FText::FromString(HealthText));
 	}
+	else
+	{
+		bInitializeCharacterOverlay = true;
+		HUDHealth = Health;
+		HUDMaxHealth = MaxHealth;
+	}
 }
 
 void AProjectZPlayerController::SetHUDScore(float Score)
@@ -62,6 +157,11 @@ void AProjectZPlayerController::SetHUDScore(float Score)
 		FString ScoreText = FString::Printf(TEXT("%d"), FMath::FloorToInt(Score));
 		ProjectZHUD->CharacterOverlay->ScoreAmount->SetText(FText::FromString(ScoreText));
 	}
+	else
+	{
+		bInitializeCharacterOverlay = true;
+		HUDScore = Score;
+	}
 }
 
 void AProjectZPlayerController::SetHUDDefeats(int32 Defeats)
@@ -72,6 +172,11 @@ void AProjectZPlayerController::SetHUDDefeats(int32 Defeats)
 	{
 		FString DefeatsText = FString::Printf(TEXT("%d"), Defeats);
 		ProjectZHUD->CharacterOverlay->DefeatsAmount->SetText(FText::FromString(DefeatsText));
+	}
+	else
+	{
+		bInitializeCharacterOverlay = true;
+		HUDDefeats = Defeats;
 	}
 }
 
@@ -110,6 +215,19 @@ void AProjectZPlayerController::SetHUDMatchCountdown(float CountdownTime)
 	}
 }
 
+void AProjectZPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
+{
+	ProjectZHUD = ProjectZHUD == nullptr ? Cast<AProjectZHUD>(GetHUD()) : ProjectZHUD;
+	bool bHUDValid = ProjectZHUD && ProjectZHUD->Announcement && ProjectZHUD->Announcement->WarmupTime;
+	if (bHUDValid)
+	{
+		int32 Minutes = FMath::FloorToInt(CountdownTime / 60.f);
+		int32 Seconds = CountdownTime - Minutes * 60;
+		FString MatchCountDownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
+		ProjectZHUD->Announcement->WarmupTime->SetText(FText::FromString(MatchCountDownText));
+	}
+}
+
 void AProjectZPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
@@ -122,14 +240,47 @@ void AProjectZPlayerController::OnPossess(APawn* InPawn)
 
 void AProjectZPlayerController::SetHUDTime()
 {
-	uint32 LeftTime = FMath::CeilToInt(MatchTime-GetServerTime());
+	if (HasAuthority())
+	{
+		AProjectZMultiGameMode* ProjectZMultiGameMode = Cast<AProjectZMultiGameMode>(UGameplayStatics::GetGameMode(this));
+		if (ProjectZMultiGameMode)
+		{
+			LevelStartingTime = ProjectZMultiGameMode->GetLevelStartingTime();
+		}
+	}
+	float TimeLeft = 0.f;
+	if (MatchState == MatchState::WaitingToStart) TimeLeft = Warmuptime - GetServerTime() + LevelStartingTime;
+	else if (MatchState == MatchState::InProgress) TimeLeft = Warmuptime + MatchTime - GetServerTime() + LevelStartingTime;
+	uint32 LeftTime = FMath::CeilToInt(TimeLeft);
 	if (CountDownInt != LeftTime)
 	{
-		SetHUDMatchCountdown(MatchTime - GetServerTime());
+		if (MatchState == MatchState::WaitingToStart)
+		{
+			SetHUDAnnouncementCountdown(TimeLeft);
+		}
+		if (MatchState == MatchState::InProgress)
+		{
+			SetHUDMatchCountdown(TimeLeft);
+		}
 	}
 	CountDownInt = LeftTime;
 }
-
+void AProjectZPlayerController::PollInit()
+{
+	if (CharacterOverlay == nullptr)
+	{
+		if (ProjectZHUD && ProjectZHUD->CharacterOverlay)
+		{
+			CharacterOverlay = ProjectZHUD->CharacterOverlay;
+			if (CharacterOverlay)
+			{
+				SetHUDHealth(HUDHealth, HUDMaxHealth);
+				SetHUDScore(HUDScore);
+				SetHUDDefeats(HUDDefeats);
+			}
+		}
+	}
+}
 //클라이언트가 호출하고 실행은 서버에서
 void AProjectZPlayerController::ServerRequestServerTime_Implementation(float TimeOfClientRequest)
 {
