@@ -22,7 +22,8 @@ int ASingleGameMode::GetLeftMonsterCount()
 	return LeftMonsterCount;
 }
 
-void ASingleGameMode::StageClear()
+
+void ASingleGameMode::StageClear_Implementation()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("DEBUG : Stage Clear"));
 }

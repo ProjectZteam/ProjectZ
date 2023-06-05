@@ -193,6 +193,7 @@ public:
 	bool IsAiming();
 	FORCEINLINE float GetAOYaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAOPitch() const { return AO_Pitch; }
+	UFUNCTION(BlueprintCallAble)
 	AWeapon* GetEquippedWeapon();
 	FORCEINLINE ETurnInPlace GetTurnInPlace() const { return TurnInPlace; }
 	FVector GetHitTarget() const;

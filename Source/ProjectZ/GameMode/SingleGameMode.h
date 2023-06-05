@@ -27,6 +27,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	virtual int GetLeftMonsterCount();
+	
+	UFUNCTION(BlueprintNativeEvent)
+	void StageClear();
+	virtual void StageClear_Implementation();
 
-	virtual void StageClear();
 };
