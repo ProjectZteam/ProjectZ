@@ -20,11 +20,13 @@ public:
 	void SetHUDWeaponAmmo(int32 Ammo);
 	void SetHUDCarriedAmmo(int32 CarriedAmmo);
 	void SetHUDMatchCountdown(float CountdownTime);
+	void SetHUDAnnouncementCountdown(float CountdownTime);
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void ReceivedPlayer() override;
 	void OnMatchStateSet(FName State);
+	void HandleMatchHasStarted();
 	virtual float GetServerTime(); // 서버 시간에 동기화하는 함수
 protected:
 	virtual void BeginPlay() override;
@@ -45,11 +47,16 @@ protected:
 	float TimeSyncFrequency = 5.f;
 	float TimeSyncRunningTime = 0.f;
 	void CheckTimeSync(float DeltaTime);
+	UFUNCTION(Server,Reliable)
+	void ServerCheckMatchState();
+	UFUNCTION(Client,Reliable)
+	void ClientJoinMidgame(float Warmup, float Match, float LevelStarting, FName State);
 private:
 	UPROPERTY()
 	class AProjectZHUD* ProjectZHUD;
-
-	float MatchTime = 120.f;
+	float LevelStartingTime = 0.f;
+	float MatchTime = 0.f;
+	float Warmuptime = 0.f;
 	uint32 CountDownInt=0;
 
 	UPROPERTY(ReplicatedUsing = OnRep_MatchState)
