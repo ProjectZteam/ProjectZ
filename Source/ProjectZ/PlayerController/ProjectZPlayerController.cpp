@@ -3,10 +3,14 @@
 
 #include "ProjectZPlayerController.h"
 #include "ProjectZ/Character/ProjectZCharacter.h"
-#include "ProjectZ//HUD/ProjectZHUD.h"
+#include "ProjectZ/HUD/ProjectZHUD.h"
 #include "ProjectZ/HUD/CharacterOverlay.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
+#include "Net/UnrealNetwork.h"
+#include "ProjectZ/GameMode/ProjectZMultiGameMode.h"
+#include "ProjectZ/PlayerState/ProjectZPlayerState.h"
+
 void AProjectZPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -15,12 +19,19 @@ void AProjectZPlayerController::BeginPlay()
 
 
 }
+void AProjectZPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AProjectZPlayerController, MatchState);
+}
 void AProjectZPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	SetHUDTime();
 
 	CheckTimeSync(DeltaTime);
+	PollInit();
 }
 void AProjectZPlayerController::CheckTimeSync(float DeltaTime)
 {
@@ -31,12 +42,37 @@ void AProjectZPlayerController::CheckTimeSync(float DeltaTime)
 		TimeSyncRunningTime = 0.f;
 	}
 }
+void AProjectZPlayerController::OnRep_MatchState()
+{
+	if (MatchState == MatchState::InProgress)
+	{
+		ProjectZHUD = ProjectZHUD == nullptr ? Cast<AProjectZHUD>(GetHUD()) : ProjectZHUD;
+		if (ProjectZHUD)
+		{
+			ProjectZHUD->AddCharacterOverlay();
+		}
+	}
+}
 void AProjectZPlayerController::ReceivedPlayer()
 {
 	Super::ReceivedPlayer();
 	if (IsLocalController())
 	{
 		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
+	}
+}
+
+void AProjectZPlayerController::OnMatchStateSet(FName State)
+{
+	MatchState = State;
+
+	if (MatchState == MatchState::InProgress)
+	{
+		ProjectZHUD = ProjectZHUD == nullptr ? Cast<AProjectZHUD>(GetHUD()) : ProjectZHUD;
+		if (ProjectZHUD)
+		{
+			ProjectZHUD->AddCharacterOverlay();
+		}
 	}
 }
 
@@ -51,6 +87,12 @@ void AProjectZPlayerController::SetHUDHealth(float Health, float MaxHealth)
 		FString HealthText = FString::Printf(TEXT("%d/%d"), FMath::CeilToInt(Health), FMath::CeilToInt(MaxHealth));
 		ProjectZHUD->CharacterOverlay->HealthText->SetText(FText::FromString(HealthText));
 	}
+	else
+	{
+		bInitializeCharacterOverlay = true;
+		HUDHealth = Health;
+		HUDMaxHealth = MaxHealth;
+	}
 }
 
 void AProjectZPlayerController::SetHUDScore(float Score)
@@ -62,6 +104,11 @@ void AProjectZPlayerController::SetHUDScore(float Score)
 		FString ScoreText = FString::Printf(TEXT("%d"), FMath::FloorToInt(Score));
 		ProjectZHUD->CharacterOverlay->ScoreAmount->SetText(FText::FromString(ScoreText));
 	}
+	else
+	{
+		bInitializeCharacterOverlay = true;
+		HUDScore = Score;
+	}
 }
 
 void AProjectZPlayerController::SetHUDDefeats(int32 Defeats)
@@ -72,6 +119,11 @@ void AProjectZPlayerController::SetHUDDefeats(int32 Defeats)
 	{
 		FString DefeatsText = FString::Printf(TEXT("%d"), Defeats);
 		ProjectZHUD->CharacterOverlay->DefeatsAmount->SetText(FText::FromString(DefeatsText));
+	}
+	else
+	{
+		bInitializeCharacterOverlay = true;
+		HUDDefeats = Defeats;
 	}
 }
 
@@ -129,7 +181,22 @@ void AProjectZPlayerController::SetHUDTime()
 	}
 	CountDownInt = LeftTime;
 }
-
+void AProjectZPlayerController::PollInit()
+{
+	if (CharacterOverlay == nullptr)
+	{
+		if (ProjectZHUD && ProjectZHUD->CharacterOverlay)
+		{
+			CharacterOverlay = ProjectZHUD->CharacterOverlay;
+			if (CharacterOverlay)
+			{
+				SetHUDHealth(HUDHealth, HUDMaxHealth);
+				SetHUDScore(HUDScore);
+				SetHUDDefeats(HUDDefeats);
+			}
+		}
+	}
+}
 //클라이언트가 호출하고 실행은 서버에서
 void AProjectZPlayerController::ServerRequestServerTime_Implementation(float TimeOfClientRequest)
 {

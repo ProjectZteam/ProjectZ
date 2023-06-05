@@ -8,6 +8,37 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
 
+AProjectZMultiGameMode::AProjectZMultiGameMode()
+{
+	bDelayedStart = true;
+}
+
+void AProjectZMultiGameMode::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (MatchState == MatchState::WaitingToStart)
+	{
+		CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		if (CountdownTime <= 0.f)
+		{
+			StartMatch();
+		}
+	}
+}
+void AProjectZMultiGameMode::OnMatchStateSet()
+{
+	Super::OnMatchStateSet();
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AProjectZPlayerController* ProjectZPlayer = Cast<AProjectZPlayerController>(*It);
+		if (ProjectZPlayer)
+		{
+			ProjectZPlayer->OnMatchStateSet(MatchState);
+		}
+	}
+}
 void AProjectZMultiGameMode::PlayerEliminated(class AProjectZCharacter* ElimmedCharacter, class AProjectZPlayerController* VictimController, AProjectZPlayerController* AttackerController)
 {
 	AProjectZPlayerState* AttackerPlayerState = AttackerController ? Cast<AProjectZPlayerState>(AttackerController->PlayerState): nullptr;
@@ -40,4 +71,11 @@ void AProjectZMultiGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AContr
 		int32 SelectionPlayerStart = FMath::RandRange(0, PlayerStarts.Num() - 1);
 		RestartPlayerAtPlayerStart(ElimmedController,PlayerStarts[SelectionPlayerStart]);
 	}
+}
+
+void AProjectZMultiGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+
+	LevelStartingTime = GetWorld()->GetTimeSeconds();
 }

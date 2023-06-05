@@ -8,8 +8,6 @@
 void AProjectZHUD::BeginPlay()
 {
 	Super::BeginPlay();
-
-	AddCharacterOverlay();
 }
 
 void AProjectZHUD::AddCharacterOverlay()
