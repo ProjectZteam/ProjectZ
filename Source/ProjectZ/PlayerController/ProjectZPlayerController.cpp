@@ -77,6 +77,10 @@ void AProjectZPlayerController::OnRep_MatchState()
 	{
 		HandleMatchHasStarted();
 	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		HandleCooldown();
+	}
 }
 void AProjectZPlayerController::HandleMatchHasStarted()
 {
@@ -87,6 +91,18 @@ void AProjectZPlayerController::HandleMatchHasStarted()
 		if (ProjectZHUD->Announcement)
 		{
 			ProjectZHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
+}
+void AProjectZPlayerController::HandleCooldown()
+{
+	ProjectZHUD = ProjectZHUD == nullptr ? Cast<AProjectZHUD>(GetHUD()) : ProjectZHUD;
+	if (ProjectZHUD)
+	{
+		ProjectZHUD->CharacterOverlay->RemoveFromParent();
+		if (ProjectZHUD->Announcement)
+		{
+			ProjectZHUD->Announcement->SetVisibility(ESlateVisibility::Visible);
 		}
 	}
 }
@@ -106,6 +122,10 @@ void AProjectZPlayerController::OnMatchStateSet(FName State)
 	if (MatchState == MatchState::InProgress)
 	{
 		HandleMatchHasStarted();
+	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		HandleCooldown();
 	}
 }
 

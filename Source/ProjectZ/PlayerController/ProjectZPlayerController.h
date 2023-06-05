@@ -27,6 +27,7 @@ public:
 	virtual void ReceivedPlayer() override;
 	void OnMatchStateSet(FName State);
 	void HandleMatchHasStarted();
+	void HandleCooldown();
 	virtual float GetServerTime(); // 서버 시간에 동기화하는 함수
 protected:
 	virtual void BeginPlay() override;
