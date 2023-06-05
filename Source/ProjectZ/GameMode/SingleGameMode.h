@@ -25,5 +25,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	virtual void IncreaseMonsterCount(int Count);
 
+	UFUNCTION(BlueprintCallable)
+	virtual int GetLeftMonsterCount();
+
 	virtual void StageClear();
 };
