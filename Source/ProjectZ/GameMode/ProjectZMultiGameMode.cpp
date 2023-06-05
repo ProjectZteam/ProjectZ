@@ -51,11 +51,6 @@ void AProjectZMultiGameMode::OnMatchStateSet()
 		}
 	}
 }
-
-float AProjectZMultiGameMode::GetLevelStartingTime() const
-{
-	return LevelStartingTime;
-}
 void AProjectZMultiGameMode::PlayerEliminated(class AProjectZCharacter* ElimmedCharacter, class AProjectZPlayerController* VictimController, AProjectZPlayerController* AttackerController)
 {
 	AProjectZPlayerState* AttackerPlayerState = AttackerController ? Cast<AProjectZPlayerState>(AttackerController->PlayerState): nullptr;
