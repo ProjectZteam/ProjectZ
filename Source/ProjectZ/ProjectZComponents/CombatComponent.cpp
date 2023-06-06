@@ -421,6 +421,10 @@ void UCombatComponent::OnRep_CombatState()
 		break;
 	}
 }
+void UCombatComponent::SetCaririedAmo(int32 amount)
+{
+	CarriedAmmo = amount;
+}
 void UCombatComponent::HandleReload()
 {
 	Character->PlayReloadMontage();

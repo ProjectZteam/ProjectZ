@@ -108,5 +108,6 @@ private:
 	UPROPERTY(EditAnywhere)
 	float AimWalkSpeed;
 public:
-
+	UFUNCTION(BlueprintCallable)
+	void SetCaririedAmo(int32 amount);
 };
