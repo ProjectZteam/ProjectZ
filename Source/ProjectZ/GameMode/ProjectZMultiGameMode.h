@@ -24,12 +24,12 @@ public:
 	virtual void PlayerEliminated(class AProjectZCharacter* ElimmedCharacter,class AProjectZPlayerController* VictimController, AProjectZPlayerController* AttackerController);
 	virtual void RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController);
 	virtual void OnMatchStateSet() override;
-	float GetLevelStartingTime() const;
+	FORCEINLINE float GetLevelStartingTime() const { return LevelStartingTime; }
 	void ShuffleArray(TArray<AActor*>& PlayerStart);
 	UPROPERTY(EditDefaultsOnly)
 		float WarmupTime = 10.f;
 	UPROPERTY(EditDefaultsOnly)
-		float MatchTime = 180.f;
+		float MatchTime = 10.f;
 	UPROPERTY(EditDefaultsOnly)
 		float CooldownTime = 10.f;
 	float LevelStartingTime = 0.f;

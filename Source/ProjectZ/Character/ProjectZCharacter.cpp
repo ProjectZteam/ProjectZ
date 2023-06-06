@@ -106,6 +106,18 @@ void AProjectZCharacter::BeginPlay()
 void AProjectZCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	RotateInPlace(DeltaTime);
+	HideCameraCollisionToCharacter();
+	PullInit();
+}
+void AProjectZCharacter::RotateInPlace(float DeltaTime)
+{
+	if (bDisableGameplay)
+	{
+		bUseControllerRotationYaw = false;
+		TurnInPlace = ETurnInPlace::ETIP_NotTurn;
+		return;
+	}
 	if (GetLocalRole() > ENetRole::ROLE_SimulatedProxy && IsLocallyControlled())//Local or Server
 	{
 		CalculateAimOffset(DeltaTime);
@@ -119,8 +131,6 @@ void AProjectZCharacter::Tick(float DeltaTime)
 		}
 		CalculateAO_Pitch();
 	}
-	HideCameraCollisionToCharacter();
-	PullInit();
 }
 void AProjectZCharacter::PlayFireMontage(bool bAiming)
 {
@@ -188,6 +198,7 @@ void AProjectZCharacter::Destroyed()
 	{
 		ElimBotComponent->DestroyComponent();
 	}
+	
 }
 void AProjectZCharacter::MulticastElim_Implementation()
 {
@@ -224,6 +235,7 @@ void AProjectZCharacter::MulticastElim_Implementation()
 	{
 		DisableInput(ProjectZPlayerController);
 	}
+	bDisableGameplay = true;
 	// 충돌 제거
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -281,10 +293,12 @@ void AProjectZCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AProjectZCharacter, OverlappingWeapon,COND_OwnerOnly);
 	DOREPLIFETIME(AProjectZCharacter, Health);
+	DOREPLIFETIME(AProjectZCharacter, bDisableGameplay);
 }
 
 void AProjectZCharacter::Move(const FInputActionValue& Value)
 {
+	if (bDisableGameplay) return;
 	const FVector2D MoveValue= Value.Get<FVector2D>();
 	const FRotator Rotation = Controller->GetControlRotation();
 	const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);
@@ -311,6 +325,7 @@ void AProjectZCharacter::Look(const FInputActionValue& Value)
 }
 void AProjectZCharacter::Jump()
 {
+	if (bDisableGameplay)return;
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -324,6 +339,7 @@ void AProjectZCharacter::Jump()
 }
 void AProjectZCharacter::Equip()
 {
+	if (bDisableGameplay)return;
 	if (Combat)
 	{
 		if (HasAuthority())//서버인경우
@@ -346,6 +362,7 @@ void AProjectZCharacter::ServerEquipPressed_Implementation()
 }
 void AProjectZCharacter::CrouchButtonPressed()
 {
+	if (bDisableGameplay)return;
 	//if CrouchButton already pressed and call Jump from this state, then return
 	if (bIsCrouchPressed)
 	{
@@ -366,6 +383,7 @@ void AProjectZCharacter::CrouchButtonPressed()
 }
 void AProjectZCharacter::AimButtonPressed()
 {
+	if (bDisableGameplay)return;
 	if (Combat&&IsAiming())
 	{
 		Combat->SetAiming(false);
@@ -379,6 +397,7 @@ void AProjectZCharacter::AimButtonPressed()
 //추후에 에임기능을 스위치방식으로할지, pressed상태방식으로할지 확장가능성위해 마우스 중간버튼클릭 액션 함수로 일단 남겨둠, 확정되면 inputaction및 함수 제거 예정
 void AProjectZCharacter::AimButtonReleased()
 {
+	if (bDisableGameplay)return;
 	if (Combat)
 	{
 		Combat->SetAiming(false);
@@ -386,6 +405,7 @@ void AProjectZCharacter::AimButtonReleased()
 }
 void AProjectZCharacter::FireButtonPressed()
 {
+	if (bDisableGameplay)return;
 	if (Combat)
 	{
 		Combat->FireButtonPressed(true);
@@ -393,6 +413,7 @@ void AProjectZCharacter::FireButtonPressed()
 }
 void AProjectZCharacter::FireButtonReleased()
 {
+	if (bDisableGameplay)return;
 	if (Combat)
 	{
 		Combat->FireButtonPressed(false);
@@ -400,6 +421,7 @@ void AProjectZCharacter::FireButtonReleased()
 }
 void AProjectZCharacter::ReloadButtonPressed()
 {
+	if (bDisableGameplay)return;
 	if (Combat)
 	{
 		Combat->Reload();

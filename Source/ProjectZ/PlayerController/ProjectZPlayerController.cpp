@@ -12,6 +12,7 @@
 #include "ProjectZ/GameMode/ProjectZMultiGameMode.h"
 #include "ProjectZ/PlayerState/ProjectZPlayerState.h"
 #include "Kismet/GameplayStatics.h"
+#include "ProjectZ/ProjectZComponents/CombatComponent.h"
 
 void AProjectZPlayerController::BeginPlay()
 {
@@ -49,20 +50,21 @@ void AProjectZPlayerController::ServerCheckMatchState_Implementation()
 	{
 		Warmuptime = GameMode->WarmupTime;
 		MatchTime = GameMode->MatchTime;
+		CooldownTime = GameMode->CooldownTime;
 		LevelStartingTime = GameMode->LevelStartingTime;
 		MatchState = GameMode->GetMatchState();
-		ClientJoinMidgame(Warmuptime, MatchTime, LevelStartingTime, MatchState);
-
-		if (ProjectZHUD&&MatchState==MatchState::WaitingToStart)
+		ClientJoinMidgame(Warmuptime, MatchTime, LevelStartingTime,CooldownTime, MatchState);
+		if (ProjectZHUD && MatchState == MatchState::WaitingToStart)
 		{
 			ProjectZHUD->AddAnnouncement();
 		}
 	}
 }
-void AProjectZPlayerController::ClientJoinMidgame_Implementation(float Warmup, float Match, float LevelStarting, FName State)
+void AProjectZPlayerController::ClientJoinMidgame_Implementation(float Warmup, float Match, float LevelStarting, float Cooldown, FName State)
 {
 	Warmuptime = Warmup;
 	MatchTime = Match;
+	CooldownTime = Cooldown;
 	LevelStartingTime = LevelStarting;
 	MatchState = State;
 	OnMatchStateSet(MatchState);
@@ -100,10 +102,19 @@ void AProjectZPlayerController::HandleCooldown()
 	if (ProjectZHUD)
 	{
 		ProjectZHUD->CharacterOverlay->RemoveFromParent();
-		if (ProjectZHUD->Announcement)
+		if (ProjectZHUD->Announcement&&ProjectZHUD->Announcement->AnnouncementText&& ProjectZHUD->Announcement->InfoText)
 		{
 			ProjectZHUD->Announcement->SetVisibility(ESlateVisibility::Visible);
+			FString AnnouncementText("New Match Will Start:");
+			ProjectZHUD->Announcement->AnnouncementText->SetText(FText::FromString(AnnouncementText));
+			ProjectZHUD->Announcement->InfoText->SetText(FText());
 		}
+	}
+	AProjectZCharacter* ProjectZCharacter = Cast<AProjectZCharacter>(GetPawn());
+	if (ProjectZCharacter&&ProjectZCharacter->GetCombat())
+	{
+		ProjectZCharacter->bDisableGameplay = true;
+		ProjectZCharacter->GetCombat()->FireButtonPressed(false);
 	}
 }
 void AProjectZPlayerController::ReceivedPlayer()
@@ -208,6 +219,11 @@ void AProjectZPlayerController::SetHUDMatchCountdown(float CountdownTime)
 	bool bHUDValid = ProjectZHUD && ProjectZHUD->CharacterOverlay && ProjectZHUD->CharacterOverlay->MatchCountDownText;
 	if (bHUDValid)
 	{
+		if (CountdownTime < 0.f)
+		{
+			ProjectZHUD->CharacterOverlay->MatchCountDownText->SetText(FText());
+			return;
+		}
 		int32 Minutes = FMath::FloorToInt(CountdownTime/60.f);
 		int32 Seconds = CountdownTime - Minutes * 60;
 		FString MatchCountDownText=FString::Printf(TEXT("%02d:%02d"),Minutes,Seconds);
@@ -221,6 +237,11 @@ void AProjectZPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 	bool bHUDValid = ProjectZHUD && ProjectZHUD->Announcement && ProjectZHUD->Announcement->WarmupTime;
 	if (bHUDValid)
 	{
+		if (CountdownTime < 0.f)
+		{
+			ProjectZHUD->Announcement->WarmupTime->SetText(FText());
+			return;
+		}
 		int32 Minutes = FMath::FloorToInt(CountdownTime / 60.f);
 		int32 Seconds = CountdownTime - Minutes * 60;
 		FString MatchCountDownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
@@ -251,10 +272,11 @@ void AProjectZPlayerController::SetHUDTime()
 	float TimeLeft = 0.f;
 	if (MatchState == MatchState::WaitingToStart) TimeLeft = Warmuptime - GetServerTime() + LevelStartingTime;
 	else if (MatchState == MatchState::InProgress) TimeLeft = Warmuptime + MatchTime - GetServerTime() + LevelStartingTime;
+	else if(MatchState==MatchState::Cooldown) TimeLeft = CooldownTime + Warmuptime + MatchTime - GetServerTime() + LevelStartingTime;
 	uint32 LeftTime = FMath::CeilToInt(TimeLeft);
 	if (CountDownInt != LeftTime)
 	{
-		if (MatchState == MatchState::WaitingToStart)
+		if (MatchState == MatchState::WaitingToStart||MatchState==MatchState::Cooldown)
 		{
 			SetHUDAnnouncementCountdown(TimeLeft);
 		}

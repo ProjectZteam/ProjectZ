@@ -51,13 +51,14 @@ protected:
 	UFUNCTION(Server,Reliable)
 	void ServerCheckMatchState();
 	UFUNCTION(Client,Reliable)
-	void ClientJoinMidgame(float Warmup, float Match, float LevelStarting, FName State);
+	void ClientJoinMidgame(float Warmup, float Match, float LevelStarting, float Cooldown,FName State);
 private:
 	UPROPERTY()
 	class AProjectZHUD* ProjectZHUD;
 	float LevelStartingTime = 0.f;
 	float MatchTime = 0.f;
 	float Warmuptime = 0.f;
+	float CooldownTime = 0.f;
 	uint32 CountDownInt=0;
 
 	UPROPERTY(ReplicatedUsing = OnRep_MatchState)

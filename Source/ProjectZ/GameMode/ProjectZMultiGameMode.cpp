@@ -37,6 +37,14 @@ void AProjectZMultiGameMode::Tick(float DeltaTime)
 			SetMatchState(MatchState::Cooldown);
 		}
 	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		CountdownTime = CooldownTime +WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		if (CountdownTime <= 0.f)
+		{
+			RestartGame();
+		}
+	}
 }
 void AProjectZMultiGameMode::OnMatchStateSet()
 {
@@ -50,11 +58,6 @@ void AProjectZMultiGameMode::OnMatchStateSet()
 			ProjectZPlayer->OnMatchStateSet(MatchState);
 		}
 	}
-}
-
-float AProjectZMultiGameMode::GetLevelStartingTime() const
-{
-	return LevelStartingTime;
 }
 void AProjectZMultiGameMode::PlayerEliminated(class AProjectZCharacter* ElimmedCharacter, class AProjectZPlayerController* VictimController, AProjectZPlayerController* AttackerController)
 {
