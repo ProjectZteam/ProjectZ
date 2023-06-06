@@ -198,7 +198,12 @@ void AProjectZCharacter::Destroyed()
 	{
 		ElimBotComponent->DestroyComponent();
 	}
-	
+	AProjectZMultiGameMode* ProjectZMultiGameMode = Cast<AProjectZMultiGameMode>(UGameplayStatics::GetGameMode(this));
+	bool bMatchNotInProgress = ProjectZMultiGameMode && ProjectZMultiGameMode->GetMatchState() != MatchState::InProgress;
+	if (Combat && Combat->EquippedWeapon && bMatchNotInProgress)
+	{
+		Combat->EquippedWeapon->Destroy();
+	}
 }
 void AProjectZCharacter::MulticastElim_Implementation()
 {
@@ -236,6 +241,10 @@ void AProjectZCharacter::MulticastElim_Implementation()
 		DisableInput(ProjectZPlayerController);
 	}
 	bDisableGameplay = true;
+	if (Combat)
+	{
+		Combat->FireButtonPressed(false);
+	}
 	// 충돌 제거
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);

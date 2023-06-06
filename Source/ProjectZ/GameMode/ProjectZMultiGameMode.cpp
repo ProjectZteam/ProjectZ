@@ -5,6 +5,7 @@
 #include "ProjectZ/Character/ProjectZCharacter.h"
 #include "ProjectZ/PlayerController/ProjectZPlayerController.h"
 #include "ProjectZ/PlayerState/ProjectZPlayerState.h"
+#include "ProjectZ/GameState/ProjectZMultiGameState.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
 
@@ -63,9 +64,13 @@ void AProjectZMultiGameMode::PlayerEliminated(class AProjectZCharacter* ElimmedC
 {
 	AProjectZPlayerState* AttackerPlayerState = AttackerController ? Cast<AProjectZPlayerState>(AttackerController->PlayerState): nullptr;
 	AProjectZPlayerState* VictimPlayerState = VictimController ? Cast<AProjectZPlayerState>(VictimController->PlayerState) : nullptr;
-	if (AttackerPlayerState && AttackerPlayerState != VictimPlayerState)
+
+	AProjectZMultiGameState* ProjectZMultiGameState = GetGameState<AProjectZMultiGameState>();
+
+	if (AttackerPlayerState && AttackerPlayerState != VictimPlayerState&&ProjectZMultiGameState)
 	{
 		AttackerPlayerState->AddScore(1.f);
+		ProjectZMultiGameState->UpdateTopScore(AttackerPlayerState);
 	}
 	if (VictimPlayerState)
 	{
