@@ -11,6 +11,7 @@
 #include "Net/UnrealNetwork.h"
 #include "ProjectZ/GameMode/ProjectZMultiGameMode.h"
 #include "ProjectZ/PlayerState/ProjectZPlayerState.h"
+#include "ProjectZ/GameState/ProjectZMultiGameState.h"
 #include "Kismet/GameplayStatics.h"
 #include "ProjectZ/ProjectZComponents/CombatComponent.h"
 
@@ -107,7 +108,35 @@ void AProjectZPlayerController::HandleCooldown()
 			ProjectZHUD->Announcement->SetVisibility(ESlateVisibility::Visible);
 			FString AnnouncementText("New Match Will Start:");
 			ProjectZHUD->Announcement->AnnouncementText->SetText(FText::FromString(AnnouncementText));
-			ProjectZHUD->Announcement->InfoText->SetText(FText());
+
+			AProjectZMultiGameState* ProjectZMultigameState = Cast<AProjectZMultiGameState>(UGameplayStatics::GetGameState(this));
+			AProjectZPlayerState* ProjectZPlayerState = GetPlayerState<AProjectZPlayerState>();
+			if (ProjectZMultigameState&& ProjectZPlayerState)
+			{
+				TArray<AProjectZPlayerState*> TopPlayers = ProjectZMultigameState->TopScoringPlayers;
+				FString InfoTextString;
+				if (TopPlayers.Num() == 0)
+				{
+					InfoTextString = FString("No Winner");
+				}
+				else if (TopPlayers.Num() == 1 && TopPlayers[0] == ProjectZPlayerState)
+				{
+					InfoTextString = FString("You win This Match");
+				}
+				else if (TopPlayers.Num() == 1)
+				{
+					InfoTextString = FString::Printf(TEXT("Winner: \n%s"), *TopPlayers[0]->GetPlayerName());
+				}
+				else if (TopPlayers.Num() > 1)
+				{
+					InfoTextString = FString("The Players tie in the game\n");
+					for (auto TiedPlayer : TopPlayers)
+					{
+						InfoTextString.Append(FString::Printf(TEXT("%s\n"),*TiedPlayer->GetPlayerName()));
+					}
+				}
+				ProjectZHUD->Announcement->InfoText->SetText(FText::FromString(InfoTextString));
+			}
 		}
 	}
 	AProjectZCharacter* ProjectZCharacter = Cast<AProjectZCharacter>(GetPawn());
