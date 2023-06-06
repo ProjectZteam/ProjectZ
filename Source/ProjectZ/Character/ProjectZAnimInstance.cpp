@@ -79,8 +79,8 @@ void UProjectZAnimInstance::NativeUpdateAnimation(float DeltaTime)
 		}
 
 		bUseFABRIK = ProjectZCharacter->GetCombatState() != ECombatState::ECS_Reloading;
-		bUseAimOffsets= ProjectZCharacter->GetCombatState() != ECombatState::ECS_Reloading;
-		bTransformRightHand= ProjectZCharacter->GetCombatState() != ECombatState::ECS_Reloading;
+		bUseAimOffsets= ProjectZCharacter->GetCombatState() != ECombatState::ECS_Reloading&& !ProjectZCharacter->GetDisableGameplay();
+		bTransformRightHand= ProjectZCharacter->GetCombatState() != ECombatState::ECS_Reloading && !ProjectZCharacter->GetDisableGameplay();
 
 		//Get Weapon Socket and attach to Character Right Hand Bone(FABRIK)
 		LeftHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("LeftHandSocket"),ERelativeTransformSpace::RTS_World);

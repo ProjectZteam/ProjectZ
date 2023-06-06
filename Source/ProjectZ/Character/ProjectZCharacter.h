@@ -36,6 +36,8 @@ public:
 	UFUNCTION(NetMulticast,Reliable)
 	void MulticastElim();
 	virtual void Destroyed() override;
+	UPROPERTY(Replicated)
+	bool bDisableGameplay = false;
 	UPROPERTY()
 	class AProjectZPlayerController* ProjectZPlayerController;
 protected:
@@ -85,6 +87,7 @@ protected:
 	void UpdateHUDHealth();
 	//캐릭터 HUD에 관련된 정보 pull
 	void PullInit();
+	void RotateInPlace(float DeltaTime);
 private:
 	UPROPERTY(VisibleAnywhere, Category=Camera)
 	class USpringArmComponent* CameraBoom;
@@ -202,4 +205,6 @@ public:
 	FORCEINLINE float GetHealth() const { return Health; }
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 	ECombatState GetCombatState() const;
+	FORCEINLINE UCombatComponent* GetCombat()const { return Combat; }
+	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay; }
 };

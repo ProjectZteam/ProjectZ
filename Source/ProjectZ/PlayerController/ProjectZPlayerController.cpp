@@ -12,6 +12,7 @@
 #include "ProjectZ/GameMode/ProjectZMultiGameMode.h"
 #include "ProjectZ/PlayerState/ProjectZPlayerState.h"
 #include "Kismet/GameplayStatics.h"
+#include "ProjectZ/ProjectZComponents/CombatComponent.h"
 
 void AProjectZPlayerController::BeginPlay()
 {
@@ -108,6 +109,12 @@ void AProjectZPlayerController::HandleCooldown()
 			ProjectZHUD->Announcement->AnnouncementText->SetText(FText::FromString(AnnouncementText));
 			ProjectZHUD->Announcement->InfoText->SetText(FText());
 		}
+	}
+	AProjectZCharacter* ProjectZCharacter = Cast<AProjectZCharacter>(GetPawn());
+	if (ProjectZCharacter&&ProjectZCharacter->GetCombat())
+	{
+		ProjectZCharacter->bDisableGameplay = true;
+		ProjectZCharacter->GetCombat()->FireButtonPressed(false);
 	}
 }
 void AProjectZPlayerController::ReceivedPlayer()
