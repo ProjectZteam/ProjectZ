@@ -37,10 +37,10 @@ protected:
 	void OnRep_EquippedWeapon();
 	void Fire();
 	UFUNCTION(Server, Reliable)
-	void ServerFire(const FVector_NetQuantize& TraceHitTarget);
+	void ServerFire(const FVector_NetQuantize& TraceHitTarget,const FVector_NetQuantize& MuzzleStart);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastFire(const FVector_NetQuantize& TraceHitTarget);
+	void MulticastFire(const FVector_NetQuantize& TraceHitTarget, const FVector_NetQuantize& MuzzleStart);
 
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 

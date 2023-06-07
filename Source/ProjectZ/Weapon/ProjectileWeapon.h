@@ -14,7 +14,7 @@ class PROJECTZ_API AProjectileWeapon : public AWeapon
 {
 	GENERATED_BODY()
 public:
-	virtual void Fire(const FVector& HitTarget) override;
+	virtual void Fire(const FVector& HitTarget, const FVector& MuzzleStart) override;
 private:
 	UPROPERTY(EditAnywhere)
 		TSubclassOf<class AProjectile> ProjectileClass;
