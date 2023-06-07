@@ -29,7 +29,7 @@ public:
 	void SetHUDAmmo();
 	bool IsEmptry();
 	void ShowPickupWidget(bool bShowWidget);
-	virtual void Fire(const FVector& HitTarget);
+	virtual void Fire(const FVector& HitTarget, const FVector& MuzzleStart);
 	void Dropped();
 	void AddAmmo(int32 AmmoToAdd);
 	//무기 크로스헤어 텍스쳐들

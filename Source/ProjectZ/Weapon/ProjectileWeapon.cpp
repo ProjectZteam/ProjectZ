@@ -5,17 +5,19 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Projectile.h"
 
-void AProjectileWeapon::Fire(const FVector& HitTarget)
+void AProjectileWeapon::Fire(const FVector& HitTarget, const FVector& MuzzleStart)
 {
-	Super::Fire(HitTarget);
+	Super::Fire(HitTarget,MuzzleStart);
 	if (!HasAuthority()) return;
 	APawn* InstigatorPawn = Cast<APawn>(GetOwner());
-	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
-	if (MuzzleFlashSocket)
+	//const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
+
+	//if (MuzzleFlashSocket)
 	{
-		FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
+		//FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
 		// From muzzle flash socket to hit location from TraceUnderCrosshairs
-		FVector ToTarget = HitTarget - SocketTransform.GetLocation();
+		//FVector ToTarget = HitTarget - SocketTransform.GetLocation();
+		FVector ToTarget = HitTarget - MuzzleStart;
 		FRotator TargetRotation = ToTarget.Rotation();
 		if (ProjectileClass && InstigatorPawn)
 		{
@@ -27,7 +29,7 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 			{
 				World->SpawnActor<AProjectile>(
 					ProjectileClass,
-					SocketTransform.GetLocation(),
+					MuzzleStart,
 					TargetRotation,
 					SpawnParams
 				);

@@ -81,7 +81,10 @@ void UCombatComponent::Fire()
 		bCanFire = false;
 		FHitResult HitResult;
 		TraceUnderCrosshairs(HitResult);
-		ServerFire(HitResult.ImpactPoint);
+		const USkeletalMeshSocket* MuzzleFlashSocket = EquippedWeapon->GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
+		FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(EquippedWeapon->GetWeaponMesh());
+		FVector Start = SocketTransform.GetLocation();
+		ServerFire(HitResult.ImpactPoint,Start);
 		if (EquippedWeapon)
 		{
 			CrosshairShootingFactor = 0.7f;
@@ -308,17 +311,17 @@ void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
 	}
 }
-void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
+void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget, const FVector_NetQuantize& MuzzleStart)
 {
-	MulticastFire(TraceHitTarget);
+	MulticastFire(TraceHitTarget, MuzzleStart);
 }
-void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
+void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget, const FVector_NetQuantize& MuzzleStart)
 {
 	if (EquippedWeapon == nullptr) return;
 	if (Character&& CombatState==ECombatState::ECS_Unoccupied)
 	{
 		Character->PlayFireMontage(bAiming);
-		EquippedWeapon->Fire(TraceHitTarget);
+		EquippedWeapon->Fire(TraceHitTarget, MuzzleStart);
 	}
 
 }
