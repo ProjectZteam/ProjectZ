@@ -23,7 +23,7 @@ public:
 
 	void EquipWeapon(class AWeapon* WeaponToEquip);
 	void Reload();
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Server, Reliable)
 	void FinishReload();
 	void FireButtonPressed(bool bPressed);
 protected:
