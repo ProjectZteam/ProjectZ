@@ -50,7 +50,7 @@ AProjectZCharacter::AProjectZCharacter()
 
 	GetCharacterMovement()->NavAgentProps.bCanCrouch=true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 0.f, 800.f);
-	GetCharacterMovement()->MaxWalkSpeed = 900.f;
+	GetCharacterMovement()->MaxWalkSpeed = 800.f;
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera,ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionObjectType(ECC_SkeletalMesh);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
@@ -61,7 +61,7 @@ AProjectZCharacter::AProjectZCharacter()
 	NetUpdateFrequency = 66.f;
 	MinNetUpdateFrequency = 33.f;
 	bIsCrouchPressed = false;
-
+	bIsShiftPressed = false;
 	DissolveTimeline = CreateDefaultSubobject<UTimelineComponent>(TEXT("DissolveTimelineComponent"));
 }
 void AProjectZCharacter::PostInitializeComponents()//이 클래스를 필요로하는 다른 클래스가 최대한 빨리 초기화를 진행하고싶을 때 사용
@@ -318,6 +318,21 @@ void AProjectZCharacter::Move(const FInputActionValue& Value)
 	AddMovementInput(RightDirection, MoveValue.X);
 }
 
+void AProjectZCharacter::Sprint()
+{
+
+	if (bIsShiftPressed)
+	{
+		bIsShiftPressed = false;
+		GetCharacterMovement()->MaxWalkSpeed = 800.f; // 달리기 시작, 속도 증가
+	}
+	else
+	{
+		bIsShiftPressed = true;
+		GetCharacterMovement()->MaxWalkSpeed = 1300.f; // 달리기 멈춤, 속도 감소
+	}
+}
+
 void AProjectZCharacter::Look(const FInputActionValue& Value)
 {
 	const FVector2D LookAxisValue=Value.Get<FVector2D>();
@@ -555,6 +570,7 @@ void AProjectZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::FireButtonPressed);
 		EnhancedInputComponent->BindAction(FireReleaseAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::FireButtonReleased);
 		EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered,this,&AProjectZCharacter::ReloadButtonPressed);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Triggered, this, &AProjectZCharacter::Sprint);
 	}
 }
 

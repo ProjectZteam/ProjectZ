@@ -49,6 +49,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* MoveAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* SprintAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* LookAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* JumpAction;
@@ -66,9 +68,10 @@ protected:
 	UInputAction* FireReleaseAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* ReloadAction;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	bool bIsCrouchPressed;
+	bool bIsShiftPressed;
 	void Move(const FInputActionValue& Value);
+	void Sprint();
 	void Look(const FInputActionValue& Value);
 	virtual void Jump() override;
 	void Equip();

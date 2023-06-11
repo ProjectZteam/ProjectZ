@@ -19,7 +19,7 @@ UCombatComponent::UCombatComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 
-	BaseWalkSpeed = 900.f;
+	BaseWalkSpeed = 800.f;
 	AimWalkSpeed = 350.f;
 }
 // Called when the game starts
@@ -374,8 +374,7 @@ void UCombatComponent::FinishReload_Implementation()
 {
 	// 클라, 서버 모두 호출하게 되기 때문에 실제 값변경을 서버만 제어할 수 있기하기위해 HasAuthority검사
 	if (Character == nullptr) return;
-	// 어떤 이유에선지 모르지만 호스트가 유선아닌 와이파이환경일경우 클라이언트의 CombatState를 제대로 변경하지못해 클라이언트가 사격, 재장전 둘다 못하는 현상 일어남
-	// 따라서 서버만 변경권한 준거 일단 주석처리하고 사용
+	bFireButtonPressed = false;
 	if (Character->HasAuthority())
 	{
 		CombatState = ECombatState::ECS_Unoccupied;
