@@ -346,9 +346,9 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)//서버만 호출가능
 	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
 	{
 		// 추후 탄약 회복 아이템 추가하면 이코드로 변경(현재는 탄약 회복템이 없어서 초기에 가진 탄약 다쓰면 무기 사용제한이 걸리기에 새로운 무기를 얻을 때마다 초기 Carried값으로 변경해줌
-		//CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
-		CarriedAmmo = StartingARAmmo;
-		CarriedAmmoMap[EquippedWeapon->GetWeaponType()] = StartingARAmmo;
+		CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+		//CarriedAmmo = StartingARAmmo;
+		CarriedAmmoMap[EquippedWeapon->GetWeaponType()] = CarriedAmmo;
 	}
 	Controller = Controller == nullptr ? Cast<AProjectZPlayerController>(Character->Controller) : Controller;
 	if (Controller)
