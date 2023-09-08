@@ -206,7 +206,7 @@ void UMenu::JoinButtonClicked()
 void UMenu::SingleButtonClicked()
 {
 	UE_LOG(LogTemp, Log, TEXT("SingleButtonClicked"));
-	UGameplayStatics::OpenLevel(this, "SingleMap");
+	UGameplayStatics::OpenLevel(this, "SingleMap_new");
 }
 
 void UMenu::StartButtonClicked()
